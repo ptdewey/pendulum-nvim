@@ -20,7 +20,7 @@ Install Pendulum using your favorite package manager:
 Lazy:
 ```lua
 {
-    "ptdewey/pendulum.nvim",
+    "ptdewey/pendulum-nvim",
     config = function()
         require("pendulum").setup({
             log_file = vim.fn.expand("$HOME/Documents/pendulum-log.csv"),
@@ -34,7 +34,7 @@ Lazy:
 Packer:
 ```lua
 use {
-    "ptdewey/pendulum.nvim",
+    "ptdewey/pendulum-nvim",
     config = function()
         require("pendulum").setup({
             log_file = vim.fn.expand("$HOME/Documents/pendulum-log.csv"),
