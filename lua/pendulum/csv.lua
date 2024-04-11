@@ -4,7 +4,7 @@ local M = {}
 ---@param field any
 ---@return string
 local function escape_csv_field(field)
-    if type(field) == "string" and (field:find("[,\"]") or field:find("\n")) then
+    if type(field) == "string" and (field:find('[,"]') or field:find("\n")) then
         field = '"' .. field:gsub('"', '""') .. '"'
     end
     return tostring(field)

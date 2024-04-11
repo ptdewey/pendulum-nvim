@@ -5,7 +5,7 @@ local handlers = require("pendulum.handlers")
 
 -- default plugin options
 local default_opts = {
-    log_file =  vim.env.HOME .. "/pendulum-log.csv",
+    log_file = vim.env.HOME .. "/pendulum-log.csv",
     timeout_len = 180,
     timer_len = 120,
 }

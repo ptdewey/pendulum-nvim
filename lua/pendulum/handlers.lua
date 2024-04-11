@@ -46,7 +46,7 @@ local function log_activity(is_active, opts)
         branch = git_branch(),
     }
 
-    csv.write_table_to_csv(opts.log_file, {data}, true)
+    csv.write_table_to_csv(opts.log_file, { data }, true)
 
     return data
 end
@@ -66,7 +66,7 @@ function M.setup(opts)
     vim.api.nvim_create_augroup("ActivityTracker", { clear = true })
 
     -- define autocmd to update last active time
-    vim.api.nvim_create_autocmd({"CursorMoved", "CursorMovedI" }, {
+    vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" }, {
         group = "ActivityTracker",
         callback = function()
             update_activity()
