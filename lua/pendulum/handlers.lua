@@ -39,7 +39,8 @@ local function log_activity(is_active, opts)
     local data = {
         time = vim.fn.strftime("%Y-%m-%d %H:%M:%S"),
         active = tostring(is_active),
-        file = vim.fn.expand("%:t+"),
+        -- file = vim.fn.expand("%:t+"), -- only file name
+        file = vim.fn.expand("%:p"), -- file name with path
         filetype = vim.bo.filetype,
         cwd = vim.loop.cwd(),
         project = git_project(),
