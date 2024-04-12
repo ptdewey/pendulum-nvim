@@ -22,11 +22,7 @@ Lazy:
 {
     "ptdewey/pendulum-nvim",
     config = function()
-        require("pendulum").setup({
-            log_file = vim.fn.expand("$HOME/Documents/pendulum-log.csv"),
-            timeout_len = 180,  -- in seconds
-            timer_len = 120,    -- in seconds
-        })
+        require("pendulum").setup()
     end,
 }
 ```
@@ -36,11 +32,7 @@ Packer:
 use {
     "ptdewey/pendulum-nvim",
     config = function()
-        require("pendulum").setup({
-            log_file = vim.fn.expand("$HOME/Documents/pendulum-log.csv"),
-            timeout_len = 180,
-            timer_len = 120,
-        })
+        require("pendulum").setup()
     end
 }
 ```

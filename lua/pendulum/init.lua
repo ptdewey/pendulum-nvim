@@ -13,7 +13,7 @@ local default_opts = {
 ---set up plugin autocommands with user options
 ---@param opts table?
 function M.setup(opts)
-    opts = vim.tbl_deep_extend("force", default_opts, opts)
+    opts = vim.tbl_deep_extend("force", default_opts, opts or {})
     handlers.setup(opts)
 end
 
