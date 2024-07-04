@@ -1,4 +1,3 @@
--- init.lua
 local M = {}
 
 local handlers = require("pendulum.handlers")
