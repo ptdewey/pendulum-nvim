@@ -1,6 +1,7 @@
 local M = {}
 
 local handlers = require("pendulum.handlers")
+require("pendulum.report")
 
 -- default plugin options
 local default_opts = {
