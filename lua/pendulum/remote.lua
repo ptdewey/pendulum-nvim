@@ -6,7 +6,7 @@ local function ensure_job()
     end
 
     -- Start the job and ensure it is running
-    chan = vim.fn.jobstart({ 'remote/pendulum-nvim' }, {
+    chan = vim.fn.jobstart({ "remote/pendulum-nvim" }, {
         rpc = true,
         on_exit = function(_, code, _)
             if code ~= 0 then
@@ -27,7 +27,7 @@ local function ensure_job()
                     print("stdout: " .. line)
                 end
             end
-        end
+        end,
     })
 
     if not chan or chan == 0 then
@@ -38,15 +38,16 @@ local function ensure_job()
     return chan
 end
 
-vim.api.nvim_create_user_command('Pendulum', function(args)
+vim.api.nvim_create_user_command("Pendulum", function(args)
     chan = ensure_job()
     if not chan or chan == 0 then
         print("Error: Invalid channel")
         return
     end
 
-    local success, result = pcall(vim.fn.rpcrequest, chan, 'pendulum', args.fargs)
+    local success, result =
+        pcall(vim.fn.rpcrequest, chan, "pendulum", args.fargs)
     if not success then
         print("RPC request failed: " .. result)
     end
-end, { nargs = '*' })
+end, { nargs = "*" })

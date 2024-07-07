@@ -55,7 +55,12 @@ func RpcEventHandler(v *nvim.Nvim, args []string) error {
     out := make([]internal.PendulumMetric, 0)
     for r := range res {
         out = append(out, r)
+
+        // NOTE: remove testing code
         fmt.Println(r.Name, len(r.Value))
+        for k, v := range r.Value {
+            fmt.Print(k, " ", v.ActiveTime.Minutes(), " " , v.TotalTime.Minutes(), " ", len(v.Timestamps), " ", len(v.ActiveTimestamps), " ", v.ActivePct, "\n")
+        }
     }
 
     // wait for cleanup goroutine to finish

@@ -66,7 +66,7 @@ end
 ---@return table
 local function split(input, delimiter)
     local result = {}
-    for match in (input..delimiter):gmatch("(.-)"..delimiter) do
+    for match in (input .. delimiter):gmatch("(.-)" .. delimiter) do
         table.insert(result, match)
     end
     return result

@@ -51,9 +51,9 @@ local function aggregate_metrics(data)
     return { files, fts, projects, branches, workdirs }
 end
 
-
 vim.api.nvim_create_user_command("TestPendulum", function()
-    local data = parse_log_file(vim.fn.expand("$HOME/projects/pendulum-log.csv"))
+    local data =
+        parse_log_file(vim.fn.expand("$HOME/projects/pendulum-log.csv"))
     -- print(vim.inspect(data))
     aggregate_metrics(data)
 end, {})
