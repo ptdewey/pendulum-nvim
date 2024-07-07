@@ -48,7 +48,7 @@ local function aggregate_metrics(data)
 
     print(vim.inspect(files))
 
-    return { files, filetypes, projects, branches, workdirs }
+    return { files, fts, projects, branches, workdirs }
 end
 
 
