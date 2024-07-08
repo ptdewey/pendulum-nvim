@@ -3,6 +3,7 @@ package internal
 import (
 	"log"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -23,7 +24,48 @@ type PendulumEntry struct {
 }
 
 // TODO: docs
-func AggregatePendulumMetric(data [][]string, m int, ch chan<-PendulumMetric) {
+func AggregatePendelumMetrics(data [][]string) ([]PendulumMetric){
+    // get number of columns
+    n := len(data[0])
+
+    // create waitgroup
+    var wg sync.WaitGroup
+
+    // create buffered channel to store results and avoid deadlock in main
+    res := make(chan PendulumMetric, n - 2)
+
+    // iterate through each metric column (except for 'active' and 'time') and create goroutine for each
+    for m := 1; m < n - 1; m++ {
+        wg.Add(1)
+        go func(m int) {
+            defer wg.Done()
+            aggregatePendulumMetric(data, m, res)
+        }(m)
+    }
+
+    // handle waitgroup in separate goroutine to allow main routine to process results as they become available.
+    var cleanup_wg sync.WaitGroup
+    cleanup_wg.Add(1)
+    go func() {
+        wg.Wait()
+        close(res)
+        cleanup_wg.Done()
+    }()
+
+    // deal with results
+    out := make([]PendulumMetric, 0)
+    for r := range res {
+        out = append(out, r)
+    }
+
+    // wait for cleanup goroutine to finish
+    cleanup_wg.Wait()
+
+    return out
+}
+
+// TODO: docs
+func aggregatePendulumMetric(data [][]string, m int, ch chan<-PendulumMetric) {
     out := PendulumMetric {
         Name: data[0][m],
         Value: make(map[string]*PendulumEntry),
@@ -74,9 +116,7 @@ func AggregatePendulumMetric(data [][]string, m int, ch chan<-PendulumMetric) {
     }
 
     // calculate active percentage
-    // TODO: change to time rather than count? (or both?)
     for _, v := range out.Value {
-        // v.ActivePct = float32(v.ActiveCount) / float32(v.TotalCount)
         v.ActivePct = float32(v.ActiveTime) / float32(v.TotalTime)
     }
 
