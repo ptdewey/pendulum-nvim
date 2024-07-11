@@ -36,16 +36,13 @@ func CreateBuffer(v *nvim.Nvim, filepath string) (nvim.Buffer, error) {
 
 // TODO: docs
 func getBufText(data [][]string) ([][]byte) {
-    // TODO: sort resulting order
     out := internal.AggregatePendelumMetrics(data)
 
-    // convert PendulumMetric array output to string array (1D)
     buf_text := make([][]byte, len(out))
-    for i, pm := range out {
-        // TODO: create report output format (probably external function)
-
-        // TODO: make this pretty
-        buf_text[i] = []byte(fmt.Sprint(pm.Name, " ", pm.Value))
+    lines := internal.PrettifyMetrics(out)
+    for i, l := range lines {
+        fmt.Println(l)
+        buf_text[i] = []byte(l)
     }
 
     return buf_text

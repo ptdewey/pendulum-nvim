@@ -1,6 +1,9 @@
 package internal
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // calculate the duration between two string timestamps (curr - prev)
 func calcDuration(curr string, prev string) (time.Duration, error) {
@@ -17,4 +20,21 @@ func calcDuration(curr string, prev string) (time.Duration, error) {
     }
 
     return curr_t.Sub(prev_t), nil
+}
+
+// reformat time.Duration values into a more readable format
+func formatDuration(d time.Duration) string {
+    if d >= 24 * time.Hour {
+        days := d / (24 * time.Hour)
+        return fmt.Sprintf("%dd", days)
+    } else if d >= time.Hour {
+        hours := d / time.Hour
+        return fmt.Sprintf("%dh", hours)
+    } else if d >= time.Minute {
+        minutes := d / time.Minute
+        return fmt.Sprintf("%dm", minutes)
+    } else {
+        seconds := d / time.Second
+        return fmt.Sprintf("%ds", seconds)
+    }
 }
