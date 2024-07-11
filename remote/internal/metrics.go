@@ -9,11 +9,11 @@ import (
 
 type PendulumMetric struct {
     Name string
+    Index int
     Value map[string]*PendulumEntry
 }
 
 type PendulumEntry struct {
-    ID string
     ActiveCount uint
     TotalCount uint
     ActiveTime time.Duration
@@ -53,9 +53,9 @@ func AggregatePendelumMetrics(data [][]string) ([]PendulumMetric){
     }()
 
     // deal with results
-    out := make([]PendulumMetric, 0)
+    out := make([]PendulumMetric, n - 2)
     for r := range res {
-        out = append(out, r)
+        out[r.Index - 1] = r
     }
 
     // wait for cleanup goroutine to finish
@@ -68,6 +68,7 @@ func AggregatePendelumMetrics(data [][]string) ([]PendulumMetric){
 func aggregatePendulumMetric(data [][]string, m int, ch chan<-PendulumMetric) {
     out := PendulumMetric {
         Name: data[0][m],
+        Index: m,
         Value: make(map[string]*PendulumEntry),
     }
     timecol := len(data[0]) - 1
@@ -83,7 +84,6 @@ func aggregatePendulumMetric(data [][]string, m int, ch chan<-PendulumMetric) {
         // check if key doesn't exist in value map
         if out.Value[val] == nil {
             out.Value[val] = &PendulumEntry {
-                ID: val,
                 ActiveCount: 0,
                 TotalCount: 0,
                 ActiveTime: 0,

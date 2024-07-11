@@ -44,12 +44,6 @@ func getBufText(data [][]string) ([][]byte) {
     for i, pm := range out {
         // TODO: create report output format (probably external function)
 
-        // line := fmt.Sprintf("")
-        // for k, e := range pm.Value {
-        // }
-        // buf_text[i] = []byte(fmt.Sprintf("%f ", pm.Value.ActiveTime.Minutes(), ))
-        // fmt.Print(k, " ", e.ActiveTime.Minutes(), " " , e.TotalTime.Minutes(), " ", len(e.Timestamps), " ", len(e.ActiveTimestamps), " ", e.ActivePct, "\n")
-
         // TODO: make this pretty
         buf_text[i] = []byte(fmt.Sprint(pm.Name, " ", pm.Value))
     }
