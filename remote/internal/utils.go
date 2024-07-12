@@ -2,6 +2,9 @@ package internal
 
 import (
 	"fmt"
+	"os"
+    "path/filepath"
+	"strings"
 	"time"
 )
 
@@ -25,16 +28,43 @@ func calcDuration(curr string, prev string) (time.Duration, error) {
 // reformat time.Duration values into a more readable format
 func formatDuration(d time.Duration) string {
     if d >= 24 * time.Hour {
-        days := d / (24 * time.Hour)
-        return fmt.Sprintf("%dd", days)
+        days := float32(d) / (24 * float32(time.Hour))
+        return fmt.Sprintf("%.2fd", days)
     } else if d >= time.Hour {
-        hours := d / time.Hour
-        return fmt.Sprintf("%dh", hours)
+        hours := float32(d) / float32(time.Hour)
+        return fmt.Sprintf("%.2fh", hours)
     } else if d >= time.Minute {
-        minutes := d / time.Minute
-        return fmt.Sprintf("%dm", minutes)
+        minutes := float32(d) / float32(time.Minute)
+        return fmt.Sprintf("%.2fm", minutes)
     } else {
-        seconds := d / time.Second
-        return fmt.Sprintf("%ds", seconds)
+        seconds := float32(d) / float32(time.Second)
+        return fmt.Sprintf("%.2fs", seconds)
     }
+}
+
+// Truncate long path strings and replace /home/user with ~/
+func truncatePath(path string) string {
+    path = strings.TrimSpace(path)
+    if path == "" {
+        return "<No Name>"
+    }
+
+    home, err := os.UserHomeDir()
+    if err != nil {
+        home = ""
+    }
+
+    if strings.HasPrefix(path, home) {
+        rpath, err := filepath.Rel(home, path)
+        if err == nil {
+            path = "~" + string(filepath.Separator) + rpath
+        }
+    }
+
+    parts := strings.Split(path, string(filepath.Separator))
+    if len(parts) > 7 {
+        path = strings.Join(parts[len(parts) - 7:], string(filepath.Separator))
+    }
+
+    return path
 }
