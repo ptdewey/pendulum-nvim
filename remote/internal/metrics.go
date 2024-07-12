@@ -25,7 +25,7 @@ type PendulumEntry struct {
 }
 
 // TODO: docs
-func AggregatePendelumMetrics(data [][]string) ([]PendulumMetric){
+func AggregatePendulumMetrics(data [][]string) ([]PendulumMetric){
     // get number of columns
     n := len(data[0])
 
@@ -109,7 +109,7 @@ func aggregatePendulumMetric(data [][]string, m int, ch chan<-PendulumMetric) {
         if active == true {
             pv.ActiveCount++
             pv.ActiveTimestamps = append(pv.ActiveTimestamps, data[i][timecol])
-            t, err = timeDiff(pv.ActiveTimestamps)
+            t, err := timeDiff(pv.ActiveTimestamps)
             if err != nil {
                 return
             }
@@ -127,7 +127,7 @@ func aggregatePendulumMetric(data [][]string, m int, ch chan<-PendulumMetric) {
 }
 
 // TODO: docs
-// TEST: make sure this works as intended
+// TODO: pass in options
 func timeDiff(timestamps []string) (time.Duration, error) {
     n := len(timestamps)
     if n < 2 {

@@ -38,12 +38,6 @@ func prettifyMetric(metric PendulumMetric) string {
         return metric.Value[keys[a]].ActiveTime > metric.Value[keys[b]].ActiveTime
     })
 
-    // NOTE: might need to hardcode some of the Metric names, i.e. filetype,
-    // in order to get desired result to show total time spent with languages,
-    // projects and more (i.e. fix Cwd)
-    name := cases.Title(language.English, cases.Compact).String(metric.Name)
-    out := fmt.Sprintf("Top %d %s:\n", n, prettifyMetricName(name))
-
     // find longest length ID value in top 5 to align text width
     l := 15
     for i := 0; i < n; i++ {
@@ -54,6 +48,8 @@ func prettifyMetric(metric PendulumMetric) string {
     }
 
     // write out top n list
+    name := cases.Title(language.English, cases.Compact).String(metric.Name)
+    out := fmt.Sprintf("# Top %d %s:\n", n, prettifyMetricName(name))
     for i := 0; i < n; i++ {
         out = fmt.Sprintln(out, prettifyEntry(metric.Value[keys[i]], i, l))
     }

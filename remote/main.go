@@ -22,20 +22,16 @@ func RpcEventHandler(v *nvim.Nvim, args []string) error {
     }
 
     // open popup window
-    err = pkg.CreatePopupWindow(v, buf) // TODO: possibly end function by returning result of popup
-    if err != nil {
+    if err := pkg.CreatePopupWindow(v, buf); err != nil {
         return err
     }
 
-    // TODO: any necessary cleanup
-
-    return nil
+    return err
 }
 
 func main() {
     log.SetFlags(0)
 
-    // redirect stdout to avoid garbling rpc stream
     // only use stdout for stderr
     stdout := os.Stdout
     os.Stdout = os.Stderr

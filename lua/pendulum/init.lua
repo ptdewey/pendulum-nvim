@@ -1,6 +1,7 @@
 local M = {}
 
 local handlers = require("pendulum.handlers")
+local remote = require("pendulum.remote")
 require("pendulum.report")
 
 -- default plugin options
@@ -8,7 +9,7 @@ local default_opts = {
     log_file = vim.env.HOME .. "/pendulum-log.csv",
     timeout_len = 180,
     timer_len = 120,
-    -- option for go remote?
+    gen_reports = false,
 }
 
 ---set up plugin autocommands with user options
@@ -17,6 +18,7 @@ function M.setup(opts)
     opts = vim.tbl_deep_extend("force", default_opts, opts or {})
     handlers.setup(opts)
     -- process call to build go binary if it doesnt exist
+    remote.setup(opts)
 end
 
 return M
