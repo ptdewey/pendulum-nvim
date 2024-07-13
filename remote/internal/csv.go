@@ -6,17 +6,17 @@ import (
 )
 
 func ReadPendulumLogFile(filepath string) ([][]string, error) {
-    f, err := os.Open(filepath)
-    if err != nil {
-        return nil, err
-    }
-    defer f.Close()
+	f, err := os.Open(filepath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
 
-    csvReader := csv.NewReader(f)
-    data, err := csvReader.ReadAll()
-    if err != nil {
-        return nil, err
-    }
+	csvReader := csv.NewReader(f)
+	data, err := csvReader.ReadAll()
+	if err != nil {
+		return nil, err
+	}
 
-    return data, nil
+	return data, nil
 }

@@ -10,12 +10,10 @@ local options = { }
 ---@param opts table
 function M.setup(opts)
     options.log_file = opts.log_file
-    options.timer_len = opts.timer_len or 120
+    options.timer_len = opts.timer_len
     options.top_n = opts.top_n or 5
 
-    -- get plugin path and path to go executable
-    -- plugin_path = debug.getinfo(1).source:sub(2):match("(.*/).*/")
-    plugin_path = "./" -- TODO: remove this line
+    plugin_path = debug.getinfo(1).source:sub(2):match("(.*/).*/.*/")
     bin_path = plugin_path .. "remote/pendulum-nvim"
 
     -- check if go binary exists
@@ -29,14 +27,13 @@ function M.setup(opts)
     end
 
     -- compile binary if it doesn't exist
-    -- TODO: recompile when plugins updates happen (user command?)
     if not output then
-        print("Pendulum binary not found, attempting to compile with Go...")
+        print("Pendulum binary not found at ".. bin_path .. ", attempting to compile with Go...")
         local result = os.execute("cd " .. plugin_path .. "remote" .. " && go build")
         if result == 0 then
             print("Go binary compiled successfully.")
         else
-            print("Failed to compile Go binary.")
+            print("Failed to compile Go binary." .. uv.cwd())
         end
     end
 end
@@ -51,7 +48,6 @@ local function ensure_job()
         return
     end
 
-    -- Start the job and ensure it is running
     chan = vim.fn.jobstart({ bin_path }, {
         rpc = true,
         on_exit = function(_, code, _)
@@ -101,14 +97,13 @@ vim.api.nvim_create_user_command("PendulumRebuild", function()
     local result = os.execute("cd " .. plugin_path .. "remote" .. " && go build")
     if result == 0 then
         print("Go binary compiled successfully.")
+        if chan then
+            vim.fn.jobstop(chan)
+            chan = nil
+        end
     else
         print("Failed to compile Go binary.")
     end
 end, { nargs = 0 })
-
--- TODO: remove later
-M.setup({
-    log_file = "/home/patrick/projects/pendulum-log.csv"
-})
 
 return M
