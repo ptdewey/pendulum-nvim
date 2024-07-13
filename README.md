@@ -12,6 +12,7 @@ Pendulum was created to offer a privacy-focused alternative to cloud-based time 
 - **Activity Detection**: Detects user activity based on cursor movements, buffer switches, and edits.
 - **Customizable Timeout**: Configurable timeout to define user inactivity.
 - **Event Logging**: Tracks buffer events and idle periods, writing these to a CSV log for later analysis.
+- **Report Generation**: Generate reports from the log file to analyze time spent on various projects (requires Go installed).
 
 ## Installation
 
@@ -41,11 +42,13 @@ use {
 
 Pendulum can be customized with several options. Here is a table with configurable options:
 
-| Option      | Description                                       | Default                             |
-|-------------|---------------------------------------------------|-------------------------------------|
-| `log_file`  | Path to the CSV file where logs should be written | `$HOME/Documents/pendulum-log.csv` |
-| `timeout_len` | Length of time in seconds to determine inactivity | `180`                               |
-| `timer_len` | Interval in seconds at which to check activity    | `120`                               |
+| Option        | Description                                       | Default                        |
+|---------------|---------------------------------------------------|--------------------------------|
+| `log_file`    | Path to the CSV file where logs should be written | `$HOME/pendulum-log.csv`       |
+| `timeout_len` | Length of time in seconds to determine inactivity | `180`                          |
+| `timer_len`   | Interval in seconds at which to check activity    | `120`                          |
+| `gen_reports` | Generate reports from the log file                | `nil`                          |
+| `top_n`       | Number of top entries to include in the report    | `5`                            |
 
 Example configuration with custom options:
 
@@ -54,6 +57,8 @@ require('pendulum').setup({
     log_file = vim.fn.expand("$HOME/Documents/my_custom_log.csv"),
     timeout_len = 300,  -- 5 minutes
     timer_len = 60,     -- 1 minute
+    gen_reports = true, -- Enable report generation
+    top_n = 10,         -- Include top 10 entries in the report
 })
 ```
 
@@ -66,7 +71,19 @@ The CSV log file will have the columns: `time`, `active`, `file`, `filetype`, `c
 - active: If the user is currently active
 - file: Current filename
 - filetype: Current file filetype
-- cwd: current working directory
-- project: current git project
-- branch: current git branch
+- cwd: Current working directory
+- project: Current git project
+- branch: Current git branch
 
+## Report Generation
+
+Pendulum can generate detailed reports from the log file. To use this feature, you need to have Go installed on your system. The report includes the top entries based on the time spent on various projects.
+
+To rebuild the Pendulum binary and generate reports, use the following commands:
+
+```vim
+:PendulumRebuild
+:Pendulum
+```
+
+The :PendulumRebuild command recompiles the Go binary, and the :Pendulum command generates the report based on the current log file.

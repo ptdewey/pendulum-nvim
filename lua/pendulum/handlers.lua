@@ -40,6 +40,7 @@ end
 local function log_activity(is_active, opts, active_time)
     -- TODO: allow adding a specific time, (last active, but in actual datetime format)
     -- https://stackoverflow.com/questions/32022898/subtracting-hours-from-os-date
+    local _ = active_time
     local ft = vim.bo.filetype
     if ft == "" then
         ft = "unknown_filetype"

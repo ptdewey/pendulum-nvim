@@ -4,7 +4,7 @@ local chan
 local bin_path
 local plugin_path
 
-local options = { }
+local options = {}
 
 ---report generation setup (requires go)
 ---@param opts table
@@ -17,24 +17,25 @@ function M.setup(opts)
     bin_path = plugin_path .. "remote/pendulum-nvim"
 
     -- check if go binary exists
-    local output
     local uv = vim.loop
     local handle = uv.fs_open(bin_path, "r", 438)
     if handle then
         uv.fs_close(handle)
-        output = true
         return
     end
 
     -- compile binary if it doesn't exist
-    if not output then
-        print("Pendulum binary not found at ".. bin_path .. ", attempting to compile with Go...")
-        local result = os.execute("cd " .. plugin_path .. "remote" .. " && go build")
-        if result == 0 then
-            print("Go binary compiled successfully.")
-        else
-            print("Failed to compile Go binary." .. uv.cwd())
-        end
+    print(
+        "Pendulum binary not found at "
+            .. bin_path
+            .. ", attempting to compile with Go..."
+    )
+    local result =
+        os.execute("cd " .. plugin_path .. "remote" .. " && go build")
+    if result == 0 then
+        print("Go binary compiled successfully.")
+    else
+        print("Failed to compile Go binary." .. uv.cwd())
     end
 end
 
@@ -85,7 +86,8 @@ vim.api.nvim_create_user_command("Pendulum", function()
         print("Error: Invalid channel")
         return
     end
-    local args = { options.log_file, "" .. options.timer_len, "" .. options.top_n }
+    local args =
+        { options.log_file, "" .. options.timer_len, "" .. options.top_n }
     local success, result = pcall(vim.fn.rpcrequest, chan, "pendulum", args)
     if not success then
         print("RPC request failed: " .. result)
@@ -94,7 +96,8 @@ end, { nargs = 0 })
 
 vim.api.nvim_create_user_command("PendulumRebuild", function()
     print("Rebuilding Pendulum binary with Go...")
-    local result = os.execute("cd " .. plugin_path .. "remote" .. " && go build")
+    local result =
+        os.execute("cd " .. plugin_path .. "remote" .. " && go build")
     if result == 0 then
         print("Go binary compiled successfully.")
         if chan then
