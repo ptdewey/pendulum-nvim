@@ -1,4 +1,3 @@
--- csv.lua
 local M = {}
 
 ---@param field any
@@ -60,4 +59,43 @@ function M.write_table_to_csv(filepath, data_table, include_header)
 
     f:close()
 end
+
+---function to split a string by a given delimiter
+---@param input string
+---@param delimiter string
+---@return table
+local function split(input, delimiter)
+    local result = {}
+    for match in (input .. delimiter):gmatch("(.-)" .. delimiter) do
+        table.insert(result, match)
+    end
+    return result
+end
+
+---read a csv file into a lua table
+---@param filepath string
+---@return table?
+function M.read_csv(filepath)
+    local csv_file = io.open(filepath, "r")
+    if not csv_file then
+        print("Could not open file: " .. filepath)
+        return nil
+    end
+
+    local headers = split(csv_file:read("*l"), ",")
+    local data = {}
+
+    for line in csv_file:lines() do
+        local row = {}
+        local values = split(line, ",")
+        for i, header in ipairs(headers) do
+            row[header] = values[i]
+        end
+        table.insert(data, row)
+    end
+
+    csv_file:close()
+    return data
+end
+
 return M
