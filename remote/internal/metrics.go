@@ -92,13 +92,13 @@ func aggregatePendulumMetric(data [][]string, m int, timeout_len float64, ch cha
 
 	// iterate through each row of data
 	for i := 1; i < len(data[:]); i++ {
-		val := data[i][m]
 		active, err := strconv.ParseBool(data[i][0])
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("Error parsing boolean at row %d, value: %s, error: %v", i, data[i][0], err)
 		}
 
 		// check if key doesn't exist in value map
+		val := data[i][m]
 		if out.Value[val] == nil {
 			out.Value[val] = &PendulumEntry{
 				ID:               val,
