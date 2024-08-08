@@ -13,20 +13,23 @@ function M.setup(opts)
     options.timer_len = opts.timer_len
     options.top_n = opts.top_n or 5
 
+    -- get plugin install path
+    plugin_path = debug.getinfo(1).source:sub(2):match("(.*/).*/.*/")
+
+    -- check os to switch separators and binary extension if necessary
     local uname = vim.loop.os_uname().sysname
     local path_separator = (uname == "Windows_NT") and "\\" or "/"
-    plugin_path = debug.getinfo(1).source:sub(2):match("(.*/).*/.*/")
-    -- FIX: windows binary name is different, figure out how to use it
-
     bin_path = plugin_path .. "remote" .. path_separator .. "pendulum-nvim" .. (uname == "Windows_NT" and ".exe" or "")
 
-    -- check if go binary exists
+    -- check if binary exists
     local uv = vim.loop
     local handle = uv.fs_open(bin_path, "r", 438)
     if handle then
         uv.fs_close(handle)
         return
     end
+
+    -- TODO: check if go is installed and is correct version
 
     -- compile binary if it doesn't exist
     print(
