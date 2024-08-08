@@ -19,7 +19,8 @@ local function git_project()
     local project_name = vim.system(
         { "git", "config", "--local", "remote.origin.url" },
         { text = true, cwd = vim.loop.cwd() }
-    ):wait().stdout
+    )
+        :wait().stdout
 
     if project_name then
         project_name = project_name:gsub("%s+$", ""):match(".*/([^.]+)%.git$")
@@ -33,9 +34,10 @@ end
 local function git_branch()
     -- TODO: possibly change cwd to file path (to capture its git project while in a different working directory)
     local branch_name = vim.system(
-        { "git",  "branch", "--show-current" },
+        { "git", "branch", "--show-current" },
         { text = true, cwd = vim.loop.cwd() }
-    ):wait().stdout
+    )
+        :wait().stdout
 
     if not branch_name or branch_name == "" or branch_name:match("^fatal:") then
         return "unknown_branch"
