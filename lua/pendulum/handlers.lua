@@ -15,18 +15,29 @@ end
 ---get the name of the git project
 ---@return string
 local function git_project()
-    local project_name = vim.fn.system("git config --local remote.origin.url")
-    project_name = project_name:gsub("%s+$", ""):match(".*/([^.]+)%.git$")
+    -- TODO: possibly change cwd to file path (to capture its git project while in a different working directory)
+    local project_name = vim.system(
+        { "git", "config", "--local", "remote.origin.url" },
+        { text = true, cwd = vim.loop.cwd() }
+    ):wait().stdout
+
+    if project_name then
+        project_name = project_name:gsub("%s+$", ""):match(".*/([^.]+)%.git$")
+    end
+
     return project_name or "unknown_project"
 end
 
 ---get name of current git branch
 ---@return string
 local function git_branch()
-    local branch_name = vim.fn.system("git branch --show-current")
+    -- TODO: possibly change cwd to file path (to capture its git project while in a different working directory)
+    local branch_name = vim.system(
+        { "git",  "branch", "--show-current" },
+        { text = true, cwd = vim.loop.cwd() }
+    ):wait().stdout
 
-    -- Check for errors or empty output
-    if branch_name == "" or branch_name:match("^fatal:") then
+    if not branch_name or branch_name == "" or branch_name:match("^fatal:") then
         return "unknown_branch"
     end
 
