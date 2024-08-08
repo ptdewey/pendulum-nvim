@@ -41,6 +41,7 @@ end
 ---@param data_table table
 ---@param include_header boolean
 function M.write_table_to_csv(filepath, data_table, include_header)
+    filepath = filepath:gsub("\\", "\\\\")
     local f = io.open(filepath, "a+")
     if not f then
         error("Error opening file: " .. filepath)
