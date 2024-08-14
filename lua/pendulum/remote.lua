@@ -19,7 +19,11 @@ function M.setup(opts)
     -- check os to switch separators and binary extension if necessary
     local uname = vim.loop.os_uname().sysname
     local path_separator = (uname == "Windows_NT") and "\\" or "/"
-    bin_path = plugin_path .. "remote" .. path_separator .. "pendulum-nvim" .. (uname == "Windows_NT" and ".exe" or "")
+    bin_path = plugin_path
+        .. "remote"
+        .. path_separator
+        .. "pendulum-nvim"
+        .. (uname == "Windows_NT" and ".exe" or "")
 
     -- check if binary exists
     local uv = vim.loop
