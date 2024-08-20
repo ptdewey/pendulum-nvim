@@ -6,50 +6,8 @@ local plugin_path
 
 local options = {}
 
----report generation setup (requires go)
----@param opts table
-function M.setup(opts)
-    options.log_file = opts.log_file
-    options.timer_len = opts.timer_len
-    options.top_n = opts.top_n or 5
-
-    -- get plugin install path
-    plugin_path = debug.getinfo(1).source:sub(2):match("(.*/).*/.*/")
-
-    -- check os to switch separators and binary extension if necessary
-    local uname = vim.loop.os_uname().sysname
-    local path_separator = (uname == "Windows_NT") and "\\" or "/"
-    bin_path = plugin_path
-        .. "remote"
-        .. path_separator
-        .. "pendulum-nvim"
-        .. (uname == "Windows_NT" and ".exe" or "")
-
-    -- check if binary exists
-    local uv = vim.loop
-    local handle = uv.fs_open(bin_path, "r", 438)
-    if handle then
-        uv.fs_close(handle)
-        return
-    end
-
-    -- TODO: check if go is installed and is correct version
-
-    -- compile binary if it doesn't exist
-    print(
-        "Pendulum binary not found at "
-            .. bin_path
-            .. ", attempting to compile with Go..."
-    )
-    local result =
-        os.execute("cd " .. plugin_path .. "remote" .. " && go build")
-    if result == 0 then
-        print("Go binary compiled successfully.")
-    else
-        print("Failed to compile Go binary." .. uv.cwd())
-    end
-end
-
+--- job runner for pendulum remote binary
+---@return integer?
 local function ensure_job()
     if chan then
         return chan
@@ -91,33 +49,84 @@ local function ensure_job()
     return chan
 end
 
-vim.api.nvim_create_user_command("Pendulum", function()
-    chan = ensure_job()
-    if not chan or chan == 0 then
-        print("Error: Invalid channel")
+--- create plugin user commands to build binary and show report
+local function setup_pendulum_commands()
+    vim.api.nvim_create_user_command("Pendulum", function()
+        chan = ensure_job()
+        if not chan or chan == 0 then
+            print("Error: Invalid channel")
+            return
+        end
+        local args =
+            { options.log_file, "" .. options.timer_len, "" .. options.top_n }
+        local success, result = pcall(vim.fn.rpcrequest, chan, "pendulum", args)
+        if not success then
+            print("RPC request failed: " .. result)
+        end
+    end, { nargs = 0 })
+
+    vim.api.nvim_create_user_command("PendulumRebuild", function()
+        print("Rebuilding Pendulum binary with Go...")
+        local result =
+            os.execute("cd " .. plugin_path .. "remote" .. " && go build")
+        if result == 0 then
+            print("Go binary compiled successfully.")
+            if chan then
+                vim.fn.jobstop(chan)
+                chan = nil
+            end
+        else
+            print("Failed to compile Go binary.")
+        end
+    end, { nargs = 0 })
+end
+
+
+
+--- report generation setup (requires go)
+---@param opts table
+function M.setup(opts)
+    options.log_file = opts.log_file
+    options.timer_len = opts.timer_len
+    options.top_n = opts.top_n or 5
+
+    -- get plugin install path
+    plugin_path = debug.getinfo(1).source:sub(2):match("(.*/).*/.*/")
+
+    -- check os to switch separators and binary extension if necessary
+    local uname = vim.loop.os_uname().sysname
+    local path_separator = (uname == "Windows_NT") and "\\" or "/"
+    bin_path = plugin_path
+        .. "remote"
+        .. path_separator
+        .. "pendulum-nvim"
+        .. (uname == "Windows_NT" and ".exe" or "")
+
+    setup_pendulum_commands()
+
+    -- check if binary exists
+    local uv = vim.loop
+    local handle = uv.fs_open(bin_path, "r", 438)
+    if handle then
+        uv.fs_close(handle)
         return
     end
-    local args =
-        { options.log_file, "" .. options.timer_len, "" .. options.top_n }
-    local success, result = pcall(vim.fn.rpcrequest, chan, "pendulum", args)
-    if not success then
-        print("RPC request failed: " .. result)
-    end
-end, { nargs = 0 })
 
-vim.api.nvim_create_user_command("PendulumRebuild", function()
-    print("Rebuilding Pendulum binary with Go...")
+    -- TODO: check if go is installed and is correct version
+
+    -- compile binary if it doesn't exist
+    print(
+        "Pendulum binary not found at "
+            .. bin_path
+            .. ", attempting to compile with Go..."
+    )
     local result =
         os.execute("cd " .. plugin_path .. "remote" .. " && go build")
     if result == 0 then
         print("Go binary compiled successfully.")
-        if chan then
-            vim.fn.jobstop(chan)
-            chan = nil
-        end
     else
-        print("Failed to compile Go binary.")
+        print("Failed to compile Go binary." .. uv.cwd())
     end
-end, { nargs = 0 })
+end
 
 return M
