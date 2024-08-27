@@ -8,7 +8,7 @@ local default_opts = {
     log_file = vim.env.HOME .. "/pendulum-log.csv",
     timeout_len = 180,
     timer_len = 120,
-    gen_reports = nil,
+    gen_reports = true,
     top_n = 5,
 }
 
@@ -18,7 +18,7 @@ function M.setup(opts)
     opts = vim.tbl_deep_extend("force", default_opts, opts or {})
     handlers.setup(opts)
 
-    if opts.gen_reports then
+    if opts.gen_reports == true then
         remote.setup(opts)
     end
 end

@@ -22,7 +22,9 @@ Pendulum was created to offer a privacy-focused alternative to cloud-based time 
 
 Install Pendulum using your favorite package manager:
 
-Lazy:
+#### With Report Generation (Requires Go)
+
+With lazy.nvim
 ```lua
 {
     "ptdewey/pendulum-nvim",
@@ -32,13 +34,17 @@ Lazy:
 }
 ```
 
-Packer:
+#### Without Report Generation
+
+With lazy.nvim
 ```lua
-use {
+{
     "ptdewey/pendulum-nvim",
     config = function()
-        require("pendulum").setup()
-    end
+        require("pendulum").setup({
+            gen_reports = false,
+        })
+    end,
 }
 ```
 
@@ -51,7 +57,7 @@ Pendulum can be customized with several options. Here is a table with configurab
 | `log_file`    | Path to the CSV file where logs should be written | `$HOME/pendulum-log.csv`       |
 | `timeout_len` | Length of time in seconds to determine inactivity | `180`                          |
 | `timer_len`   | Interval in seconds at which to check activity    | `120`                          |
-| `gen_reports` | Generate reports from the log file                | `nil`                          |
+| `gen_reports` | Generate reports from the log file                | `true`                         |
 | `top_n`       | Number of top entries to include in the report    | `5`                            |
 
 Example configuration with custom options:
@@ -87,11 +93,22 @@ The :PendulumRebuild command recompiles the Go binary, and the :Pendulum command
 I recommend rebuilding the binary after the plugin is updated.
 
 
+If you do not want to install Go, report generation can be disabled by changing the `gen_reports` option to `false`. Disabling reports will cause the `Pendulum` and `PendulumRebuild` commands to not be created since they are exclusively used for the reports feature.
+
+```lua
+config = function()
+    require("pendulum").setup({
+        -- disable report generations (avoids Go dependency)
+        gen_reports = false,
+    })
+end,
+```
+
 ## Future Ideas
 
 These are some potential future ideas that would make for welcome contributions for anyone interested.
 
-- [ ] Logging to SQLite database (optionally)
-- [ ] Telescope integration
-- [ ] Get stats for specified project, filetype, etc. (Could work well with Telescope)
+- Logging to SQLite database (optionally)
+- Telescope integration
+- Get stats for specified project, filetype, etc. (Could work well with Telescope)
 
