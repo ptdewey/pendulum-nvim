@@ -16,6 +16,7 @@ import (
 //   - args[0] is the path to the pendulum log file.
 //   - args[1] is the timeout length as a string.
 //   - args[2] is the number of data points to aggregate.
+//   - args[3] is the time range to aggregate data from
 //
 // Returns:
 // - The created buffer.
@@ -28,7 +29,7 @@ func CreateBuffer(v *nvim.Nvim, args []string) (nvim.Buffer, error) {
 	}
 
 	// set buffer filetype to add some highlighting
-	// TODO: a custom hl group would be considerably nicer looking
+	// TODO: a custom hl group could be considerably nicer looking
 	if err := v.SetBufferOption(buf, "filetype", "markdown"); err != nil {
 		return buf, err
 	}
@@ -50,7 +51,7 @@ func CreateBuffer(v *nvim.Nvim, args []string) (nvim.Buffer, error) {
 	}
 
 	// get prettified buffer text
-	buf_text := getBufText(data, timeout_len, n)
+	buf_text := getBufText(data, timeout_len, n, args[3])
 
 	// set contents of new buffer
 	if err := v.SetBufferLines(buf, 0, -1, false, buf_text); err != nil {
@@ -71,11 +72,12 @@ func CreateBuffer(v *nvim.Nvim, args []string) (nvim.Buffer, error) {
 // - data: A 2D slice of strings representing the pendulum data.
 // - timeout_len: A float64 representing the timeout length.
 // - n: An integer representing the number of data points to aggregate.
+// - rangeType: A string representing the time window to aggregate data for ("all" is recommended)
 //
 // Returns:
 // - A 2D slice of bytes representing the text to be set in the buffer.
-func getBufText(data [][]string, timeout_len float64, n int) [][]byte {
-	out := internal.AggregatePendulumMetrics(data, timeout_len)
+func getBufText(data [][]string, timeout_len float64, n int, rangeType string) [][]byte {
+	out := internal.AggregatePendulumMetrics(data, timeout_len, rangeType)
 
 	lines := internal.PrettifyMetrics(out, n)
 

@@ -21,7 +21,7 @@ import (
 //   - An error if there are not enough arguments, if the buffer cannot be created,
 //     or if the popup window cannot be created.
 func RpcEventHandler(v *nvim.Nvim, args []string) error {
-	if len(args) < 3 {
+	if len(args) < 4 {
 		return errors.New("Not enough arguments")
 	}
 

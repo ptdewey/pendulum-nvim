@@ -68,3 +68,55 @@ func truncatePath(path string) string {
 
 	return path
 }
+
+// DOC:
+// FIX: potential time zone issue (hour timeframe is empty)
+func isTimestampInRange(timestampStr, rangeType string) (bool, error) {
+	layout := "2006-01-02 15:04:05"
+
+	timestamp, err := time.Parse(layout, timestampStr)
+	if err != nil {
+		return false, fmt.Errorf("error parsing timestamp: %v", err)
+	}
+
+	now := time.Now()
+
+	var startOfRange, endOfRange time.Time
+
+	switch rangeType {
+	case "today", "day":
+		startOfRange = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		endOfRange = startOfRange.Add(24 * time.Hour).Add(-time.Nanosecond)
+	case "year":
+		startOfRange = time.Date(now.Year(), time.January, 1, 0, 0, 0, 0, now.Location())
+		endOfRange = startOfRange.Add(365 * 24 * time.Hour).Add(-time.Nanosecond)
+	case "month":
+		startOfRange = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+		endOfRange = startOfRange.AddDate(0, 1, 0).Add(-time.Nanosecond)
+	case "week":
+		year, week := now.ISOWeek()
+		// calculate the start of the week based on the current week and year
+		startOfWeek := time.Date(year, time.January, 1, 0, 0, 0, 0, now.Location())
+		for startOfWeek.Weekday() != time.Monday {
+			startOfWeek = startOfWeek.AddDate(0, 0, 1)
+		}
+		startOfRange = startOfWeek.AddDate(0, 0, (week-1)*7)
+		endOfRange = startOfRange.Add(7 * 24 * time.Hour).Add(-time.Nanosecond)
+	case "hour":
+		startOfRange = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
+		endOfRange = startOfRange.Add(1 * time.Hour).Add(-time.Nanosecond)
+	default:
+		// default to "all" range if input is invalid or not provided
+		startOfRange = time.Time{}
+		endOfRange = time.Time{}
+	}
+
+	// handle the default "all" range case (from the earliest possible time to the latest possible time)
+	if rangeType == "all" || startOfRange.IsZero() || endOfRange.IsZero() {
+		startOfRange = time.Time{}
+		endOfRange = time.Now().Add(1 * time.Second)
+	}
+
+	// Check if the timestamp is within the range
+	return timestamp.After(startOfRange) && timestamp.Before(endOfRange), nil
+}

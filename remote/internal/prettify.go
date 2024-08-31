@@ -20,6 +20,7 @@ func PrettifyMetrics(metrics []PendulumMetric, n int) []string {
 	var lines []string
 
 	// TODO: add printing of plugin name, log file path, and report generation time
+	// also time frame of the report
 
 	// iterate over each metric
 	for _, metric := range metrics {
@@ -46,12 +47,8 @@ func prettifyMetric(metric PendulumMetric, n int) string {
 	}
 
 	// sort map by time spent active per key
-	// FIX: sorts by active time, display shows total first which can result
-	// in some cases where first entry of one is smaller than the next.
-	// either sort by total or print active first (or find another solution?)
 	sort.SliceStable(keys, func(a int, b int) bool {
 		return metric.Value[keys[a]].ActiveTime > metric.Value[keys[b]].ActiveTime
-		// return metric.Value[keys[a]].TotalTime > metric.Value[keys[b]].TotalTime
 	})
 
 	if n > len(keys) {

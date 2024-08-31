@@ -51,19 +51,28 @@ end
 
 --- create plugin user commands to build binary and show report
 local function setup_pendulum_commands()
-    vim.api.nvim_create_user_command("Pendulum", function()
+    vim.api.nvim_create_user_command("Pendulum", function(args)
         chan = ensure_job()
         if not chan or chan == 0 then
             print("Error: Invalid channel")
             return
         end
-        local args =
-            { options.log_file, "" .. options.timer_len, "" .. options.top_n }
-        local success, result = pcall(vim.fn.rpcrequest, chan, "pendulum", args)
+
+        local range = args.args or "all"
+        print(range)
+
+        local command_args = {
+            options.log_file,
+            "" .. options.timer_len,
+            "" .. options.top_n,
+            "" .. range,
+        }
+        local success, result =
+            pcall(vim.fn.rpcrequest, chan, "pendulum", command_args)
         if not success then
             print("RPC request failed: " .. result)
         end
-    end, { nargs = 0 })
+    end, { nargs = "?" })
 
     vim.api.nvim_create_user_command("PendulumRebuild", function()
         print("Rebuilding Pendulum binary with Go...")
@@ -80,8 +89,6 @@ local function setup_pendulum_commands()
         end
     end, { nargs = 0 })
 end
-
-
 
 --- report generation setup (requires go)
 ---@param opts table

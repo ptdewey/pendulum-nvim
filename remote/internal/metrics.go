@@ -29,10 +29,11 @@ type PendulumEntry struct {
 // Parameters:
 // - data: A 2D slice of strings representing the pendulum data.
 // - timeout_len: A float64 representing the timeout length.
+// - rangeType: A string representing the time window to aggregate data for ("all" is recommended)
 //
 // Returns:
 // - A slice of PendulumMetric structs containing the aggregated metrics.
-func AggregatePendulumMetrics(data [][]string, timeout_len float64) []PendulumMetric {
+func AggregatePendulumMetrics(data [][]string, timeout_len float64, rangeType string) []PendulumMetric {
 	// get number of columns
 	n := len(data[0])
 
@@ -47,7 +48,7 @@ func AggregatePendulumMetrics(data [][]string, timeout_len float64) []PendulumMe
 		wg.Add(1)
 		go func(m int) {
 			defer wg.Done()
-			aggregatePendulumMetric(data, m, timeout_len, res)
+			aggregatePendulumMetric(data, m, timeout_len, rangeType, res)
 		}(m)
 	}
 
@@ -78,11 +79,12 @@ func AggregatePendulumMetrics(data [][]string, timeout_len float64) []PendulumMe
 // - data: A 2D slice of strings representing the pendulum data.
 // - m: An integer representing the column index to process.
 // - timeout_len: A float64 representing the timeout length.
+// - rangeType: A string representing the time window to aggregate data for ("all" is recommended)
 // - ch: A channel to send the aggregated PendulumMetric.
 //
 // Returns:
 // - None
-func aggregatePendulumMetric(data [][]string, m int, timeout_len float64, ch chan<- PendulumMetric) {
+func aggregatePendulumMetric(data [][]string, m int, timeout_len float64, rangeType string, ch chan<- PendulumMetric) {
 	out := PendulumMetric{
 		Name:  data[0][m],
 		Index: m,
@@ -95,6 +97,17 @@ func aggregatePendulumMetric(data [][]string, m int, timeout_len float64, ch cha
 		active, err := strconv.ParseBool(data[i][0])
 		if err != nil {
 			log.Printf("Error parsing boolean at row %d, value: %s, error: %v", i, data[i][0], err)
+		}
+
+		// FIX: hour timeframe is broken (likely others as well -- probably caused by timezones)
+		// TODO: add header to popup window showing the timeframe used (in buffer.go)
+		// PERF: this check anecdotally makes the popup feel slower
+		inRange, err := isTimestampInRange(data[i][timecol], rangeType)
+		if err != nil {
+			return
+		}
+		if !inRange {
+			continue
 		}
 
 		// check if key doesn't exist in value map
