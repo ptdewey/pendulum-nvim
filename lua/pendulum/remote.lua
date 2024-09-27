@@ -59,7 +59,6 @@ local function setup_pendulum_commands()
         end
 
         local range = args.args or "all"
-        print(range)
 
         local command_args = {
             options.log_file,

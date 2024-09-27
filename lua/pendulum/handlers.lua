@@ -99,11 +99,11 @@ function M.setup(opts)
     update_activity()
 
     -- create autocommand group
-    vim.api.nvim_create_augroup("ActivityTracker", { clear = true })
+    vim.api.nvim_create_augroup("Pendulum", { clear = true })
 
     -- define autocmd to update last active time
     vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" }, {
-        group = "ActivityTracker",
+        group = "Pendulum",
         callback = function()
             update_activity()
         end,
@@ -111,7 +111,7 @@ function M.setup(opts)
 
     -- define autocmd for logging events
     vim.api.nvim_create_autocmd({ "BufEnter", "VimLeave" }, {
-        group = "ActivityTracker",
+        group = "Pendulum",
         callback = function()
             log_activity(true, opts)
         end,

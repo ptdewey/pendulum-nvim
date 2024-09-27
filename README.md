@@ -15,7 +15,7 @@ Pendulum was created to offer a privacy-focused alternative to cloud-based time 
 - Automatic Time Tracking: Logs time spent in each file along with the workding directory, file type, project name, and git branch if available.
 - Activity Detection: Detects user activity based on cursor movements (on a timer) and buffer switches.
 - Customizable Timeout: Configurable timeout to define user inactivity.
-- Event Logging**: Tracks buffer events and idle periods, writing these to a CSV log for later analysis.
+- Event Logging: Tracks buffer events and idle periods, writing these to a CSV log for later analysis.
 - Report Generation: Generate reports from the log file to quickly view how time was spent on various projects (requires Go installed).
 
 ## Installation
@@ -111,4 +111,6 @@ These are some potential future ideas that would make for welcome contributions 
 - Logging to SQLite database (optionally)
 - Telescope integration
 - Get stats for specified project, filetype, etc. (Could work well with Telescope)
+- Nicer looking popup with custom highlight groups
+- Alternative version of popup that uses a terminal buffer and [bubbletea](https://github.com/charmbracelet/bubbletea) (using the table component)
 
