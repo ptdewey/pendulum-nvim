@@ -58,14 +58,15 @@ local function setup_pendulum_commands()
             return
         end
 
-        local range = args.args or "all"
+        local time_range = args.args or "all"
 
         local command_args = {
-            options.log_file,
-            "" .. options.timer_len,
-            "" .. options.top_n,
-            "" .. range,
+            log_file = options.log_file,
+            timer_len = options.timer_len,
+            top_n = options.top_n,
+            time_range = time_range,
         }
+
         local success, result =
             pcall(vim.fn.rpcrequest, chan, "pendulum", command_args)
         if not success then

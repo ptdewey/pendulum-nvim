@@ -9,53 +9,60 @@ import (
 	"github.com/neovim/go-client/nvim"
 )
 
-// RpcEventHandler handles RPC events and creates a metrics report popup.
-//
-// Parameters:
-//   - v: A pointer to the Neovim instance.
-//   - args: A slice of strings where args[0] is expected to be the pendulum
-//     log file path, args[1] is the timeout length (active -> inactive),
-//     and args[2] is the number of top entries to show for each metric.
-//
-// Returns:
-//   - An error if there are not enough arguments, if the buffer cannot be created,
-//     or if the popup window cannot be created.
-func RpcEventHandler(v *nvim.Nvim, args []string) error {
-	if len(args) < 4 {
-		return errors.New("Not enough arguments")
-	}
-
-	// create and populate metrics report buffer
-	buf, err := pkg.CreateBuffer(v, args)
+// RpcEventHandler handles the RPC call from Lua and creates a buffer with pendulum data.
+func RpcEventHandler(v *nvim.Nvim, args map[string]interface{}) error {
+	// Extract and validate arguments from input table
+	pendulumArgs, err := pkg.ParsePendlumArgs(args)
 	if err != nil {
 		return err
 	}
 
-	// open popup window
+	// Call CreateBuffer with the struct
+	buf, err := pkg.CreateBuffer(v, *pendulumArgs)
+	if err != nil {
+		return err
+	}
+
+	// Open popup window
 	if err := pkg.CreatePopupWindow(v, buf); err != nil {
 		return err
 	}
 
-	return err
+	return nil
 }
 
 func main() {
 	log.SetFlags(0)
 
-	// only use stdout for stderr
+	// Redirect stdout to stderr
 	stdout := os.Stdout
 	os.Stdout = os.Stderr
 
+	// Connect to Neovim
 	v, err := nvim.New(os.Stdin, stdout, stdout, log.Printf)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	v.RegisterHandler("pendulum", RpcEventHandler)
+	// Register the "pendulum" RPC handler, which receives Lua tables
+	v.RegisterHandler("pendulum", func(v *nvim.Nvim, args ...interface{}) error {
+		// Expecting the first argument to be a map (Lua table)
+		if len(args) < 1 {
+			return errors.New("not enough arguments")
+		}
 
-	// run rpc message loop
+		// Parse the first argument as a map
+		argMap, ok := args[0].(map[string]interface{})
+		if !ok {
+			return errors.New("expected a map as the first argument")
+		}
+
+		// Call the actual handler with the parsed map
+		return RpcEventHandler(v, argMap)
+	})
+
+	// Run the RPC message loop
 	if err := v.Serve(); err != nil {
 		log.Fatal(err)
-		return
 	}
 }
