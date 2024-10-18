@@ -27,7 +27,7 @@ func CreateBuffer(v *nvim.Nvim, args PendulumArgs) (nvim.Buffer, error) {
 	}
 
 	// get prettified buffer text
-	bufText := getBufText(data, args.Timeout, args.TopN, args.TimeRange)
+	bufText := getBufText(data, args)
 
 	// set contents of new buffer
 	if err := v.SetBufferLines(buf, 0, -1, false, bufText); err != nil {
@@ -55,10 +55,9 @@ func CreateBuffer(v *nvim.Nvim, args PendulumArgs) (nvim.Buffer, error) {
 //
 // Returns:
 // - A 2D slice of bytes representing the text to be set in the buffer.
-func getBufText(data [][]string, timeoutLen float64, n int, rangeType string) [][]byte {
-	out := internal.AggregatePendulumMetrics(data, timeoutLen, rangeType)
-
-	lines := internal.PrettifyMetrics(out, n)
+func getBufText(data [][]string, args PendulumArgs) [][]byte {
+	out := internal.AggregatePendulumMetrics(data[:], args.Timeout, args.TimeRange, args.Sections)
+	lines := internal.PrettifyMetrics(out, args.TopN)
 
 	var bufText [][]byte
 	for _, l := range lines {

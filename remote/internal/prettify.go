@@ -25,7 +25,9 @@ func PrettifyMetrics(metrics []PendulumMetric, n int) []string {
 	// iterate over each metric
 	for _, metric := range metrics {
 		// TODO: redefine order? (might require hardcoding)
-		lines = append(lines, prettifyMetric(metric, n))
+		if metric.Name != "" && len(metric.Value) != 0 {
+			lines = append(lines, prettifyMetric(metric, n))
+		}
 	}
 
 	return lines

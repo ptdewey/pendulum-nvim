@@ -24,6 +24,16 @@ type PendulumEntry struct {
 	ActivePct        float32
 }
 
+var csvColumns = map[string]int{
+	"active":      0,
+	"branch":      1,
+	"directories": 2,
+	"file":        3,
+	"filetype":    4,
+	"project":     5,
+	"time":        6,
+}
+
 // AggregatePendulumMetrics processes the input data to compute metrics for each column.
 //
 // Parameters:
@@ -33,28 +43,32 @@ type PendulumEntry struct {
 //
 // Returns:
 // - A slice of PendulumMetric structs containing the aggregated metrics.
-func AggregatePendulumMetrics(data [][]string, timeout_len float64, rangeType string) []PendulumMetric {
-	// get number of columns
-	n := len(data[0])
-
+func AggregatePendulumMetrics(
+	data [][]string,
+	timeout_len float64,
+	rangeType string,
+	sections []interface{}) []PendulumMetric {
 	// create waitgroup
 	var wg sync.WaitGroup
 
 	// create buffered channel to store results and avoid deadlock in main
-	res := make(chan PendulumMetric, n-2)
+	res := make(chan PendulumMetric, len(sections))
 
-	// iterate through each metric column (except for 'active' and 'time') and create goroutine for each
-	for m := 1; m < n-1; m++ {
+	// iterate through each metric column as specified in Sections config
+	// and create goroutine for each
+	for _, colName := range sections {
 		wg.Add(1)
 		go func(m int) {
 			defer wg.Done()
 			aggregatePendulumMetric(data, m, timeout_len, rangeType, res)
-		}(m)
+		}(csvColumns[colName.(string)])
 	}
 
-	// handle waitgroup in separate goroutine to allow main routine to process results as they become available.
+	// handle waitgroup in separate goroutine to allow main routine
+	// to process results as they become available.
 	var cleanup_wg sync.WaitGroup
 	cleanup_wg.Add(1)
+
 	go func() {
 		wg.Wait()
 		close(res)
@@ -62,9 +76,9 @@ func AggregatePendulumMetrics(data [][]string, timeout_len float64, rangeType st
 	}()
 
 	// deal with results
-	out := make([]PendulumMetric, n-2)
+	out := make([]PendulumMetric, len(data[0]))
 	for r := range res {
-		out[r.Index-1] = r
+		out[r.Index] = r
 	}
 
 	// wait for cleanup goroutine to finish
@@ -82,9 +96,14 @@ func AggregatePendulumMetrics(data [][]string, timeout_len float64, rangeType st
 // - rangeType: A string representing the time window to aggregate data for ("all" is recommended)
 // - ch: A channel to send the aggregated PendulumMetric.
 //
-// Returns:
-// - None
-func aggregatePendulumMetric(data [][]string, m int, timeout_len float64, rangeType string, ch chan<- PendulumMetric) {
+// // Returns:
+// // - None
+func aggregatePendulumMetric(
+	data [][]string,
+	m int,
+	timeout_len float64,
+	rangeType string,
+	ch chan<- PendulumMetric) {
 	out := PendulumMetric{
 		Name:  data[0][m],
 		Index: m,
@@ -106,6 +125,7 @@ func aggregatePendulumMetric(data [][]string, m int, timeout_len float64, rangeT
 		if err != nil {
 			return
 		}
+
 		if !inRange {
 			continue
 		}
@@ -132,6 +152,7 @@ func aggregatePendulumMetric(data [][]string, m int, timeout_len float64, rangeT
 		if err != nil {
 			return
 		}
+
 		pv.TotalTime += t
 
 		// active-only metrics aggregation
@@ -142,6 +163,7 @@ func aggregatePendulumMetric(data [][]string, m int, timeout_len float64, rangeT
 			if err != nil {
 				return
 			}
+
 			pv.ActiveTime += t
 		}
 	}
