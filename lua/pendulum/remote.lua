@@ -65,6 +65,7 @@ local function setup_pendulum_commands()
             timer_len = options.timer_len,
             top_n = options.top_n,
             time_range = time_range,
+            sections = options.sections,
         }
 
         local success, result =
@@ -96,6 +97,7 @@ function M.setup(opts)
     options.log_file = opts.log_file
     options.timer_len = opts.timer_len
     options.top_n = opts.top_n or 5
+    options.sections = opts.sections
 
     -- get plugin install path
     plugin_path = debug.getinfo(1).source:sub(2):match("(.*/).*/.*/")
@@ -127,6 +129,7 @@ function M.setup(opts)
             .. bin_path
             .. ", attempting to compile with Go..."
     )
+
     local result =
         os.execute("cd " .. plugin_path .. "remote" .. " && go build")
     if result == 0 then
