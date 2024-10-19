@@ -47,21 +47,43 @@ func AggregatePendulumMetrics(
 	data [][]string,
 	timeout_len float64,
 	rangeType string,
-	sections []interface{}) []PendulumMetric {
+	reportExcludes map[string]interface{}) []PendulumMetric {
 	// create waitgroup
 	var wg sync.WaitGroup
 
 	// create buffered channel to store results and avoid deadlock in main
-	res := make(chan PendulumMetric, len(sections))
+	res := make(chan PendulumMetric, len(reportExcludes))
 
 	// iterate through each metric column as specified in Sections config
 	// and create goroutine for each
-	for _, colName := range sections {
+	for col := range len(csvColumns) {
+		if col == csvColumns["active"] || col == csvColumns["time"] {
+			continue
+		}
+
+		is_excluded := false
+		for _, ex := range reportExcludes["groups"].([]interface{}) {
+			if col == csvColumns[ex.(string)] {
+				is_excluded = true
+				break
+			}
+		}
+
+		if is_excluded {
+			continue
+		}
+
 		wg.Add(1)
 		go func(m int) {
 			defer wg.Done()
-			aggregatePendulumMetric(data, m, timeout_len, rangeType, res)
-		}(csvColumns[colName.(string)])
+			aggregatePendulumMetric(
+				data,
+				m,
+				timeout_len,
+				rangeType,
+				res,
+			)
+		}(col)
 	}
 
 	// handle waitgroup in separate goroutine to allow main routine
@@ -109,7 +131,8 @@ func aggregatePendulumMetric(
 		Index: m,
 		Value: make(map[string]*PendulumEntry),
 	}
-	timecol := len(data[0]) - 1
+
+	timecol := csvColumns["time"]
 
 	// iterate through each row of data
 	for i := 1; i < len(data[:]); i++ {

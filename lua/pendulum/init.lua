@@ -10,12 +10,15 @@ local default_opts = {
     timer_len = 120,
     gen_reports = true,
     top_n = 5,
-    sections = {
-        "branch",
-        "directories",
-        "files",
-        "filetypes",
-        "projects",
+    report_excludes = {
+        filetypes = {
+            "qf",
+            "TelescopePrompt",
+            "neo-tree",
+        },
+        groups = {
+            "branch",
+        },
     },
 }
 

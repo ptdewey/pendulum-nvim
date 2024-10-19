@@ -8,11 +8,11 @@ import (
 // NOTE: add new fields here and to following function to extend functionalities
 // - The fields in this struct should mirror the "command_args" table in `lua/pendulum/remote.lua`
 type PendulumArgs struct {
-	LogFile          string
-	Timeout          float64
-	TopN             int
-	TimeRange        string
-	Sections         []interface{}
+	LogFile        string
+	Timeout        float64
+	TopN           int
+	TimeRange      string
+	ReportExcludes map[string]interface{}
 }
 
 // Parse input arguments from lua table args
@@ -41,18 +41,18 @@ func ParsePendlumArgs(args map[string]interface{}) (*PendulumArgs, error) {
 			fmt.Sprintf("Type: %T\n", args["time_range"]))
 	}
 
-	sections, ok := args["sections"].([]interface{})
+	reportExcludes, ok := args["report_excludes"].(map[string]interface{})
 	if !ok {
-		return nil, errors.New("sections missing or not an array. " +
-			fmt.Sprintf("Type: %T\n", args["sections"]))
+		return nil, errors.New("report_excludes missing or not an map. " +
+			fmt.Sprintf("Type: %T\n", args["report_excludes"]))
 	}
 
 	out := PendulumArgs{
-		LogFile:          logFile,
-		Timeout:          float64(timerLen),
-		TopN:             int(topN),
-		TimeRange:        timeRange,
-		Sections:         sections,
+		LogFile:        logFile,
+		Timeout:        float64(timerLen),
+		TopN:           int(topN),
+		TimeRange:      timeRange,
+		ReportExcludes: reportExcludes,
 	}
 
 	return &out, nil
