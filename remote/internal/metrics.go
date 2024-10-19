@@ -25,13 +25,13 @@ type PendulumEntry struct {
 }
 
 var csvColumns = map[string]int{
-	"active":      0,
-	"branch":      1,
-	"directories": 2,
-	"file":        3,
-	"filetype":    4,
-	"project":     5,
-	"time":        6,
+	"active":    0,
+	"branch":    1,
+	"directory": 2,
+	"file":      3,
+	"filetype":  4,
+	"project":   5,
+	"time":      6,
 }
 
 // AggregatePendulumMetrics processes the input data to compute metrics for each column.
@@ -62,7 +62,7 @@ func AggregatePendulumMetrics(
 		}
 
 		is_excluded := false
-		for _, ex := range reportExcludes["groups"].([]interface{}) {
+		for _, ex := range reportExcludes["group"].([]interface{}) {
 			if col == csvColumns[ex.(string)] {
 				is_excluded = true
 				break

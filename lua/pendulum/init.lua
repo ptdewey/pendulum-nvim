@@ -11,14 +11,12 @@ local default_opts = {
     gen_reports = true,
     top_n = 5,
     report_excludes = {
-        filetypes = {
-            "qf",
-            "TelescopePrompt",
-            "neo-tree",
-        },
-        groups = {
-            "branch",
-        },
+        filetype = {},
+        branch = {},
+        directory = {},
+        project = {},
+        file = {},
+        group = {},
     },
 }
 
@@ -26,6 +24,7 @@ local default_opts = {
 ---@param opts table?
 function M.setup(opts)
     opts = vim.tbl_deep_extend("force", default_opts, opts or {})
+    print(opts)
     handlers.setup(opts)
 
     if opts.gen_reports == true then
