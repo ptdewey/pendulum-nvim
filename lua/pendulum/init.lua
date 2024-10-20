@@ -11,11 +11,11 @@ local default_opts = {
     gen_reports = true,
     top_n = 5,
     report_excludes = {
-        filetype = {},
         branch = {},
         directory = {},
-        project = {},
         file = {},
+        filetype = {},
+        project = {},
     },
     report_section_excludes = {},
 }
@@ -24,7 +24,6 @@ local default_opts = {
 ---@param opts table?
 function M.setup(opts)
     opts = vim.tbl_deep_extend("force", default_opts, opts or {})
-    print(opts)
     handlers.setup(opts)
 
     if opts.gen_reports == true then
