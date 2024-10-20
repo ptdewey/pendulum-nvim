@@ -62,7 +62,7 @@ Pendulum can be customized with several options. Here is a table with configurab
 | `gen_reports`               | Generate reports from the log file                      | `true`                   |
 | `top_n`                     | Number of top entries to include in the report          | `5`                      |
 | `report_section_excludes`   | Additional filters to be applied to each report section | `{}`                     |
-| `report_excludes`           | Show/Hide report sections. e.g `branch`, `filetype` ... | `{}`                     |
+| `report_excludes`           | Show/Hide report sections. e.g `branch`, `directory`, `file`, `filetype`, `project` | `{}` |
 
 Example configuration with custom options:
 
@@ -83,22 +83,23 @@ require('pendulum').setup({
     },
     report_excludes = {
         filetype = {
-            -- This table controls what to be excluded from `filetype` section 
+            -- This table controls what to be excluded from `filetype` section
             "neo-tree", -- Exclude neo-tree filetype
         },
         file = {
-            -- This table controls what to be excluded from `file` section 
-            "test.py",  -- Exclude any test.py 
+            -- This table controls what to be excluded from `file` section
+            "test.py",  -- Exclude any test.py
             ".*.go",    -- Exclude all Go files
         }
         project = {
-            -- This table controls what to be excluded from `project` section 
+            -- This table controls what to be excluded from `project` section
+            "unknown_project" -- Exclude unknown (non-git) projects
         },
         directory = {
-            -- This table controls what to be excluded from `directory` section 
+            -- This table controls what to be excluded from `directory` section
         },
         branch = {
-            -- This table controls what to be excluded from `branch` section 
+            -- This table controls what to be excluded from `branch` section
         },
     },
 })
@@ -136,6 +137,8 @@ config = function()
     })
 end,
 ```
+
+The report contents are customizable and section items or entire sections can be excluded from the report if desired. (See `report_excludes` and `report_section_excludes` options in setup)
 
 ## Future Ideas
 
