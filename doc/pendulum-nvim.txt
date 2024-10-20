@@ -1,4 +1,4 @@
-*pendulum-nvim.txt*     For Neovim >= 0.10.0    Last change: 2024 September 27
+*pendulum-nvim.txt*      For Neovim >= 0.10.0     Last change: 2024 October 20
 
 ==============================================================================
 Table of Contents                            *pendulum-nvim-table-of-contents*
@@ -83,23 +83,30 @@ CONFIGURATION                      *pendulum-nvim-pendulum-nvim-configuration*
 Pendulum can be customized with several options. Here is a table with
 configurable options:
 
-  ---------------------------------------------------------------------------
-  Option        Description                          Default
-  ------------- ------------------------------------ ------------------------
-  log_file      Path to the CSV file where logs      $HOME/pendulum-log.csv
-                should be written                    
+  ---------------------------------------------------------------------------------------
+  Option                    Description                          Default
+  ------------------------- ------------------------------------ ------------------------
+  log_file                  Path to the CSV file where logs      $HOME/pendulum-log.csv
+                            should be written                    
 
-  timeout_len   Length of time in seconds to         180
-                determine inactivity                 
+  timeout_len               Length of time in seconds to         180
+                            determine inactivity                 
 
-  timer_len     Interval in seconds at which to      120
-                check activity                       
+  timer_len                 Interval in seconds at which to      120
+                            check activity                       
 
-  gen_reports   Generate reports from the log file   true
+  gen_reports               Generate reports from the log file   true
 
-  top_n         Number of top entries to include in  5
-                the report                           
-  ---------------------------------------------------------------------------
+  top_n                     Number of top entries to include in  5
+                            the report                           
+
+  report_section_excludes   Additional filters to be applied to  {}
+                            each report section                  
+
+  report_excludes           Show/Hide report sections. e.g       {}
+                            branch, directory, file, filetype,   
+                            project                              
+  ---------------------------------------------------------------------------------------
 Example configuration with custom options:
 
 >lua
@@ -109,8 +116,40 @@ Example configuration with custom options:
         timer_len = 60,     -- 1 minute
         gen_reports = true, -- Enable report generation (requires Go)
         top_n = 10,         -- Include top 10 entries in the report
+        report_section_excludes = {
+            "branch",       -- Hide `branch` section of the report
+            -- Other options includes:
+            -- "directory",
+            -- "filetype",
+            -- "file",
+            -- "project",
+        },
+        report_excludes = {
+            filetype = {
+                -- This table controls what to be excluded from `filetype` section
+                "neo-tree", -- Exclude neo-tree filetype
+            },
+            file = {
+                -- This table controls what to be excluded from `file` section
+                "test.py",  -- Exclude any test.py
+                ".*.go",    -- Exclude all Go files
+            }
+            project = {
+                -- This table controls what to be excluded from `project` section
+                "unknown_project" -- Exclude unknown (non-git) projects
+            },
+            directory = {
+                -- This table controls what to be excluded from `directory` section
+            },
+            branch = {
+                -- This table controls what to be excluded from `branch` section
+            },
+        },
     })
 <
+
+**Note**You can use regex to express the matching patterns within
+`report_excludes`.
 
 
 USAGE                                      *pendulum-nvim-pendulum-nvim-usage*
@@ -155,6 +194,10 @@ exclusively used for the reports feature.
     end,
 <
 
+The report contents are customizable and section items or entire sections can
+be excluded from the report if desired. (See `report_excludes` and
+`report_section_excludes` options in setup)
+
 
 FUTURE IDEAS                        *pendulum-nvim-pendulum-nvim-future-ideas*
 
@@ -164,6 +207,8 @@ for anyone interested.
 - Logging to SQLite database (optionally)
 - Telescope integration
 - Get stats for specified project, filetype, etc. (Could work well with Telescope)
+- Nicer looking popup with custom highlight groups
+- Alternative version of popup that uses a terminal buffer and bubbletea <https://github.com/charmbracelet/bubbletea> (using the table component)
 
 ==============================================================================
 2. Links                                                 *pendulum-nvim-links*
