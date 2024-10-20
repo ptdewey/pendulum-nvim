@@ -16,8 +16,8 @@ local default_opts = {
         directory = {},
         project = {},
         file = {},
-        group = {},
     },
+    report_section_excludes = {},
 }
 
 ---set up plugin autocommands with user options

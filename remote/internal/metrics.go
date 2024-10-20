@@ -2,6 +2,7 @@ package internal
 
 import (
 	"log"
+	"regexp"
 	"strconv"
 	"sync"
 	"time"
@@ -40,6 +41,8 @@ var csvColumns = map[string]int{
 // - data: A 2D slice of strings representing the pendulum data.
 // - timeout_len: A float64 representing the timeout length.
 // - rangeType: A string representing the time window to aggregate data for ("all" is recommended)
+// - reportSectionExcludes: An array of report section names. e.g. "branch", "files"...
+// - reportExcludes: A map of filters.
 //
 // Returns:
 // - A slice of PendulumMetric structs containing the aggregated metrics.
@@ -47,12 +50,14 @@ func AggregatePendulumMetrics(
 	data [][]string,
 	timeout_len float64,
 	rangeType string,
-	reportExcludes map[string]interface{}) []PendulumMetric {
+	reportSectionExcludes []interface{},
+	reportExcludes map[string]interface{},
+) []PendulumMetric {
 	// create waitgroup
 	var wg sync.WaitGroup
 
 	// create buffered channel to store results and avoid deadlock in main
-	res := make(chan PendulumMetric, len(reportExcludes))
+	res := make(chan PendulumMetric, len(data[0]))
 
 	// iterate through each metric column as specified in Sections config
 	// and create goroutine for each
@@ -61,15 +66,15 @@ func AggregatePendulumMetrics(
 			continue
 		}
 
-		is_excluded := false
-		for _, ex := range reportExcludes["group"].([]interface{}) {
-			if col == csvColumns[ex.(string)] {
-				is_excluded = true
+		isExcluded := false
+		for _, section := range reportSectionExcludes {
+			if col == csvColumns[section.(string)] {
+				isExcluded = true
 				break
 			}
 		}
 
-		if is_excluded {
+		if isExcluded {
 			continue
 		}
 
@@ -81,6 +86,7 @@ func AggregatePendulumMetrics(
 				m,
 				timeout_len,
 				rangeType,
+				reportExcludes,
 				res,
 			)
 		}(col)
@@ -125,7 +131,9 @@ func aggregatePendulumMetric(
 	m int,
 	timeout_len float64,
 	rangeType string,
-	ch chan<- PendulumMetric) {
+	reportExcludes map[string]interface{},
+	ch chan<- PendulumMetric,
+) {
 	out := PendulumMetric{
 		Name:  data[0][m],
 		Index: m,
@@ -133,6 +141,12 @@ func aggregatePendulumMetric(
 	}
 
 	timecol := csvColumns["time"]
+	colName := out.Name
+	if colName == "cwd" {
+		// This is a bit hacky. csv uses cwd, code uses directory.
+		// TODO: consolidate these two terms?
+		colName = "directory"
+	}
 
 	// iterate through each row of data
 	for i := 1; i < len(data[:]); i++ {
@@ -153,8 +167,29 @@ func aggregatePendulumMetric(
 			continue
 		}
 
-		// check if key doesn't exist in value map
 		val := data[i][m]
+
+		isExcluded := false
+		for _, expr := range reportExcludes[colName].([]interface{}) {
+			r, err := regexp.Compile(expr.(string))
+			if err != nil {
+				log.Printf("Error parsing regex: %s for %s", expr, colName)
+				continue
+			}
+
+			match := r.MatchString(val)
+
+			if match {
+				isExcluded = true
+				break
+			}
+		}
+
+		if isExcluded {
+			continue
+		}
+
+		// check if key doesn't exist in value map
 		if out.Value[val] == nil {
 			out.Value[val] = &PendulumEntry{
 				ID:               val,

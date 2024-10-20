@@ -66,6 +66,7 @@ local function setup_pendulum_commands()
             top_n = options.top_n,
             time_range = time_range,
             report_excludes = options.report_excludes,
+            report_section_excludes = options.report_section_excludes,
         }
 
         local success, result =
@@ -98,6 +99,7 @@ function M.setup(opts)
     options.timer_len = opts.timer_len
     options.top_n = opts.top_n or 5
     options.report_excludes = opts.report_excludes
+    options.report_section_excludes = opts.report_section_excludes
 
     -- get plugin install path
     plugin_path = debug.getinfo(1).source:sub(2):match("(.*/).*/.*/")

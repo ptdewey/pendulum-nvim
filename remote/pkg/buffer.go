@@ -60,6 +60,7 @@ func getBufText(data [][]string, args PendulumArgs) [][]byte {
 		data[:],
 		args.Timeout,
 		args.TimeRange,
+		args.ReportSectionExcludes,
 		args.ReportExcludes,
 	)
 	lines := internal.PrettifyMetrics(out, args.TopN)
