@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"math"
 	"sort"
 
 	"golang.org/x/text/cases"
@@ -70,6 +71,10 @@ func prettifyMetric(metric PendulumMetric, n int) string {
 	name := cases.Title(language.English, cases.Compact).String(metric.Name)
 	out := fmt.Sprintf("# Top %d %s:\n", n, prettifyMetricName(name))
 	for i := 0; i < n; i++ {
+		if math.IsNaN(float64(metric.Value[keys[i]].ActivePct)) {
+			continue
+		}
+
 		out = fmt.Sprintln(out, prettifyEntry(metric.Value[keys[i]], i, l, n))
 	}
 
