@@ -25,6 +25,7 @@ Install Pendulum using your favorite package manager:
 #### With Report Generation (Requires Go)
 
 With lazy.nvim
+
 ```lua
 {
     "ptdewey/pendulum-nvim",
@@ -37,6 +38,7 @@ With lazy.nvim
 #### Without Report Generation
 
 With lazy.nvim
+
 ```lua
 {
     "ptdewey/pendulum-nvim",
@@ -52,13 +54,15 @@ With lazy.nvim
 
 Pendulum can be customized with several options. Here is a table with configurable options:
 
-| Option        | Description                                       | Default                        |
-|---------------|---------------------------------------------------|--------------------------------|
-| `log_file`    | Path to the CSV file where logs should be written | `$HOME/pendulum-log.csv`       |
-| `timeout_len` | Length of time in seconds to determine inactivity | `180`                          |
-| `timer_len`   | Interval in seconds at which to check activity    | `120`                          |
-| `gen_reports` | Generate reports from the log file                | `true`                         |
-| `top_n`       | Number of top entries to include in the report    | `5`                            |
+| Option                      | Description                                             | Default                  |
+|-----------------------------|---------------------------------------------------------|--------------------------|
+| `log_file`                  | Path to the CSV file where logs should be written       | `$HOME/pendulum-log.csv` |
+| `timeout_len`               | Length of time in seconds to determine inactivity       | `180`                    |
+| `timer_len`                 | Interval in seconds at which to check activity          | `120`                    |
+| `gen_reports`               | Generate reports from the log file                      | `true`                   |
+| `top_n`                     | Number of top entries to include in the report          | `5`                      |
+| `report_section_excludes`   | Additional filters to be applied to each report section | `{}`                     |
+| `report_excludes`           | Show/Hide report sections. e.g `branch`, `directory`, `file`, `filetype`, `project` | `{}` |
 
 Example configuration with custom options:
 
@@ -69,8 +73,39 @@ require('pendulum').setup({
     timer_len = 60,     -- 1 minute
     gen_reports = true, -- Enable report generation (requires Go)
     top_n = 10,         -- Include top 10 entries in the report
+    report_section_excludes = {
+        "branch",       -- Hide `branch` section of the report
+        -- Other options includes:
+        -- "directory",
+        -- "filetype",
+        -- "file",
+        -- "project",
+    },
+    report_excludes = {
+        filetype = {
+            -- This table controls what to be excluded from `filetype` section
+            "neo-tree", -- Exclude neo-tree filetype
+        },
+        file = {
+            -- This table controls what to be excluded from `file` section
+            "test.py",  -- Exclude any test.py
+            ".*.go",    -- Exclude all Go files
+        }
+        project = {
+            -- This table controls what to be excluded from `project` section
+            "unknown_project" -- Exclude unknown (non-git) projects
+        },
+        directory = {
+            -- This table controls what to be excluded from `directory` section
+        },
+        branch = {
+            -- This table controls what to be excluded from `branch` section
+        },
+    },
 })
 ```
+
+**Note**: You can use regex to express the matching patterns within `report_excludes`.
 
 ## Usage
 
@@ -92,7 +127,6 @@ To rebuild the Pendulum binary and generate reports, use the following commands:
 The :PendulumRebuild command recompiles the Go binary, and the :Pendulum command generates the report based on the current log file.
 I recommend rebuilding the binary after the plugin is updated.
 
-
 If you do not want to install Go, report generation can be disabled by changing the `gen_reports` option to `false`. Disabling reports will cause the `Pendulum` and `PendulumRebuild` commands to not be created since they are exclusively used for the reports feature.
 
 ```lua
@@ -104,6 +138,8 @@ config = function()
 end,
 ```
 
+The report contents are customizable and section items or entire sections can be excluded from the report if desired. (See `report_excludes` and `report_section_excludes` options in setup)
+
 ## Future Ideas
 
 These are some potential future ideas that would make for welcome contributions for anyone interested.
@@ -113,4 +149,3 @@ These are some potential future ideas that would make for welcome contributions 
 - Get stats for specified project, filetype, etc. (Could work well with Telescope)
 - Nicer looking popup with custom highlight groups
 - Alternative version of popup that uses a terminal buffer and [bubbletea](https://github.com/charmbracelet/bubbletea) (using the table component)
-

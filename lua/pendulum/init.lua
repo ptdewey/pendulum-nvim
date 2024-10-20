@@ -10,6 +10,14 @@ local default_opts = {
     timer_len = 120,
     gen_reports = true,
     top_n = 5,
+    report_excludes = {
+        branch = {},
+        directory = {},
+        file = {},
+        filetype = {},
+        project = {},
+    },
+    report_section_excludes = {},
 }
 
 ---set up plugin autocommands with user options
