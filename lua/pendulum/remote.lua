@@ -51,19 +51,30 @@ end
 
 --- create plugin user commands to build binary and show report
 local function setup_pendulum_commands()
-    vim.api.nvim_create_user_command("Pendulum", function()
+    vim.api.nvim_create_user_command("Pendulum", function(args)
         chan = ensure_job()
         if not chan or chan == 0 then
             print("Error: Invalid channel")
             return
         end
-        local args =
-            { options.log_file, "" .. options.timer_len, "" .. options.top_n }
-        local success, result = pcall(vim.fn.rpcrequest, chan, "pendulum", args)
+
+        local time_range = args.args or "all"
+
+        local command_args = {
+            log_file = options.log_file,
+            timer_len = options.timer_len,
+            top_n = options.top_n,
+            time_range = time_range,
+            report_excludes = options.report_excludes,
+            report_section_excludes = options.report_section_excludes,
+        }
+
+        local success, result =
+            pcall(vim.fn.rpcrequest, chan, "pendulum", command_args)
         if not success then
             print("RPC request failed: " .. result)
         end
-    end, { nargs = 0 })
+    end, { nargs = "?" })
 
     vim.api.nvim_create_user_command("PendulumRebuild", function()
         print("Rebuilding Pendulum binary with Go...")
@@ -81,14 +92,14 @@ local function setup_pendulum_commands()
     end, { nargs = 0 })
 end
 
-
-
 --- report generation setup (requires go)
 ---@param opts table
 function M.setup(opts)
     options.log_file = opts.log_file
     options.timer_len = opts.timer_len
     options.top_n = opts.top_n or 5
+    options.report_excludes = opts.report_excludes
+    options.report_section_excludes = opts.report_section_excludes
 
     -- get plugin install path
     plugin_path = debug.getinfo(1).source:sub(2):match("(.*/).*/.*/")
@@ -120,6 +131,7 @@ function M.setup(opts)
             .. bin_path
             .. ", attempting to compile with Go..."
     )
+
     local result =
         os.execute("cd " .. plugin_path .. "remote" .. " && go build")
     if result == 0 then
