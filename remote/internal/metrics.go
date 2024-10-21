@@ -155,14 +155,11 @@ func aggregatePendulumMetric(
 			log.Printf("Error parsing boolean at row %d, value: %s, error: %v", i, data[i][0], err)
 		}
 
-		// FIX: hour timeframe is broken (likely others as well -- probably caused by timezones)
 		// TODO: add header to popup window showing the timeframe used (in buffer.go)
-		// PERF: this check anecdotally makes the popup feel slower
 		inRange, err := isTimestampInRange(data[i][timecol], rangeType)
 		if err != nil {
 			return
 		}
-
 		if !inRange {
 			continue
 		}

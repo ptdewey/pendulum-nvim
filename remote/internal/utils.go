@@ -70,16 +70,16 @@ func truncatePath(path string) string {
 }
 
 // DOC:
-// FIX: potential time zone issue (hour timeframe is empty)
 func isTimestampInRange(timestampStr, rangeType string) (bool, error) {
 	layout := "2006-01-02 15:04:05"
 
+	// WARN: input timestamp format has to be in UTC for hour filtering (or allow a TZ config option)
 	timestamp, err := time.Parse(layout, timestampStr)
 	if err != nil {
 		return false, fmt.Errorf("error parsing timestamp: %v", err)
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 
 	var startOfRange, endOfRange time.Time
 
@@ -103,7 +103,7 @@ func isTimestampInRange(timestampStr, rangeType string) (bool, error) {
 		startOfRange = startOfWeek.AddDate(0, 0, (week-1)*7)
 		endOfRange = startOfRange.Add(7 * 24 * time.Hour).Add(-time.Nanosecond)
 	case "hour":
-		startOfRange = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
+		startOfRange = time.Date(now.Year(), now.Month(), now.Day(), now.Hour()-1, now.Minute(), now.Second(), 0, now.Location())
 		endOfRange = startOfRange.Add(1 * time.Hour).Add(-time.Nanosecond)
 	default:
 		// default to "all" range if input is invalid or not provided

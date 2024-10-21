@@ -51,15 +51,14 @@ end
 ---@param active_time integer?
 ---@return table
 local function log_activity(is_active, opts, active_time)
-    -- TODO: allow adding a specific time, (last active, but in actual datetime format)
-    -- https://stackoverflow.com/questions/32022898/subtracting-hours-from-os-date
     local _ = active_time
     local ft = vim.bo.filetype
     if ft == "" then
         ft = "unknown_filetype"
     end
     local data = {
-        time = vim.fn.strftime("%Y-%m-%d %H:%M:%S"),
+        -- time = vim.fn.strftime("%Y-%m-%d %H:%M:%S"), -- Use local time zone instead
+        time = os.date("!%Y-%m-%d %H:%M:%S"),
         active = tostring(is_active),
         -- file = vim.fn.expand("%:t+"), -- only file name
         file = vim.fn.expand("%:p"), -- file name with path
