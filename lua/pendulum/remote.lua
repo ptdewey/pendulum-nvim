@@ -123,8 +123,6 @@ function M.setup(opts)
         return
     end
 
-    -- TODO: check if go is installed and is correct version
-
     -- compile binary if it doesn't exist
     print(
         "Pendulum binary not found at "

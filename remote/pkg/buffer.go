@@ -15,6 +15,10 @@ func CreateBuffer(v *nvim.Nvim, args PendulumArgs) (nvim.Buffer, error) {
 		return buf, err
 	}
 
+	if err := v.SetBufferName(buf, "Pendulum"); err != nil {
+		return buf, err
+	}
+
 	// set buffer filetype to add some highlighting
 	if err := v.SetBufferOption(buf, "filetype", "markdown"); err != nil {
 		return buf, err
