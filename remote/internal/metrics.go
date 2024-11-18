@@ -210,8 +210,6 @@ func aggregatePendulumMetric(
 
 		pv.TotalTime += t
 
-		// TODO: common active time aggregation here?
-
 		// active-only metrics aggregation
 		if active == true {
 			pv.ActiveCount++
