@@ -1,8 +1,10 @@
-package internal
+package prettify
 
 import (
 	"fmt"
 	"math"
+	"pendulum-nvim/internal/data"
+	"pendulum-nvim/pkg/args"
 	"sort"
 
 	"golang.org/x/text/cases"
@@ -13,11 +15,10 @@ import (
 //
 // Parameters:
 // - metrics: A slice of PendulumMetric structs containing the metrics data.
-// - n: An integer specifying the number of top entries to include in each metric's output.
 //
 // Returns:
 // - A slice of strings where each string is a formatted representation of a metric.
-func PrettifyMetrics(metrics []PendulumMetric, n int) []string {
+func PrettifyMetrics(metrics []data.PendulumMetric) []string {
 	var lines []string
 
 	// TODO: add printing of plugin name, log file path, and report generation time
@@ -28,7 +29,7 @@ func PrettifyMetrics(metrics []PendulumMetric, n int) []string {
 	for _, metric := range metrics {
 		// TODO: redefine order? (might require hardcoding)
 		if metric.Name != "" && len(metric.Value) != 0 {
-			lines = append(lines, prettifyMetric(metric, n))
+			lines = append(lines, prettifyMetric(metric, args.PendulumArgs().NMetrics))
 		}
 	}
 
@@ -43,7 +44,7 @@ func PrettifyMetrics(metrics []PendulumMetric, n int) []string {
 //
 // Returns:
 // - A string formatted to display the top n entries of the metric.
-func prettifyMetric(metric PendulumMetric, n int) string {
+func prettifyMetric(metric data.PendulumMetric, n int) string {
 	keys := make([]string, 0, len(metric.Value))
 	for k := range metric.Value {
 		keys = append(keys, k)
@@ -91,7 +92,7 @@ func prettifyMetric(metric PendulumMetric, n int) string {
 //
 // Returns:
 // - A formatted string representing the entry.
-func prettifyEntry(e *PendulumEntry, i int, l int, n int) string {
+func prettifyEntry(e *data.PendulumEntry, i int, l int, n int) string {
 	format := fmt.Sprintf("%%%dd. %%-%ds: Total Time %%+6s, Active Time %%+6s (%%-5.2f%%%%)",
 		len(fmt.Sprintf("%d", n)), l+1)
 	return fmt.Sprintf(format,

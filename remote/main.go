@@ -5,20 +5,21 @@ import (
 	"log"
 	"os"
 	"pendulum-nvim/pkg"
+	"pendulum-nvim/pkg/args"
 
 	"github.com/neovim/go-client/nvim"
 )
 
 // RpcEventHandler handles the RPC call from Lua and creates a buffer with pendulum data.
-func RpcEventHandler(v *nvim.Nvim, args map[string]any) error {
+func RpcEventHandler(v *nvim.Nvim, luaArgs map[string]any) error {
 	// Extract and validate arguments from input table
-	pendulumArgs, err := pkg.ParsePendlumArgs(args)
+	err := args.ParsePendlumArgs(luaArgs)
 	if err != nil {
 		return err
 	}
 
 	// Call CreateBuffer with the struct
-	buf, err := pkg.CreateBuffer(v, *pendulumArgs)
+	buf, err := pkg.CreateBuffer(v)
 	if err != nil {
 		return err
 	}

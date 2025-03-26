@@ -1,7 +1,9 @@
-package internal
+package prettify
 
 import (
 	"fmt"
+	"pendulum-nvim/internal/data"
+	"pendulum-nvim/pkg/args"
 	"sort"
 	"time"
 )
@@ -11,17 +13,19 @@ type hourFreq struct {
 	count int
 }
 
-func PrettifyActiveHours(metrics []PendulumMetric, n int, timeFormat string, timeZone string) []string {
+func PrettifyActiveHours(metrics []data.PendulumMetric) []string {
+	pendulumArgs := args.PendulumArgs()
 	for _, metric := range metrics {
 		if metric.Name != "" && len(metric.Value) != 0 {
-			return []string{prettifyActiveHours(metric, n, timeFormat, timeZone)}
+			return []string{prettifyActiveHours(metric, pendulumArgs.NHours,
+				pendulumArgs.TimeFormat, pendulumArgs.TimeZone)}
 		}
 	}
 
 	return []string{}
 }
 
-func prettifyActiveHours(metric PendulumMetric, n int, timeFormat string, timeZone string) string {
+func prettifyActiveHours(metric data.PendulumMetric, n int, timeFormat string, timeZone string) string {
 	hourCounts := make(map[int]int)
 	layout := "2006-01-02 15:04:05"
 
