@@ -10,7 +10,7 @@ import (
 )
 
 // RpcEventHandler handles the RPC call from Lua and creates a buffer with pendulum data.
-func RpcEventHandler(v *nvim.Nvim, args map[string]interface{}) error {
+func RpcEventHandler(v *nvim.Nvim, args map[string]any) error {
 	// Extract and validate arguments from input table
 	pendulumArgs, err := pkg.ParsePendlumArgs(args)
 	if err != nil {
@@ -46,14 +46,14 @@ func main() {
 	}
 
 	// Register the "pendulum" RPC handler, which receives Lua tables
-	v.RegisterHandler("pendulum", func(v *nvim.Nvim, args ...interface{}) error {
+	v.RegisterHandler("pendulum", func(v *nvim.Nvim, args ...any) error {
 		// Expecting the first argument to be a map (Lua table)
 		if len(args) < 1 {
 			return errors.New("not enough arguments")
 		}
 
 		// Parse the first argument as a map
-		argMap, ok := args[0].(map[string]interface{})
+		argMap, ok := args[0].(map[string]any)
 		if !ok {
 			return errors.New("expected a map as the first argument")
 		}

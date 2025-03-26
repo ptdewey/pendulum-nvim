@@ -61,18 +61,22 @@ local function setup_pendulum_commands()
         -- local time_range = args.args or "all"
         local view = args.args
 
-        local command_args = {
-            log_file = options.log_file,
-            timer_len = options.timer_len,
-            top_n = options.top_n,
-            hours_n = options.hours_n,
-            -- time_range = time_range,
-            view = view,
-            time_range = "all",
-            report_excludes = options.report_excludes,
-            report_section_excludes = options.report_section_excludes,
-            time_format = options.time_format,
-        }
+        local command_args = options
+        options.time_range = "all"
+        options.view = args.args
+        -- local command_args = {
+        --     log_file = options.log_file,
+        --     timer_len = options.timer_len,
+        --     top_n = options.top_n,
+        --     hours_n = options.hours_n,
+        --     -- time_range = time_range,
+        --     view = view,
+        --     time_range = "all",
+        --     time_zone
+        --     report_excludes = options.report_excludes,
+        --     report_section_excludes = options.report_section_excludes,
+        --     time_format = options.time_format,
+        -- }
 
         local success, result =
             pcall(vim.fn.rpcrequest, chan, "pendulum", command_args)

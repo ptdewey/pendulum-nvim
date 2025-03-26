@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// NOTE: add new fields here and to following function to extend functionalities
+// Add new fields here and to following function to extend functionalities
 // - The fields in this struct should mirror the "command_args" table in `lua/pendulum/remote.lua`
 type PendulumArgs struct {
 	LogFile               string
@@ -17,6 +17,7 @@ type PendulumArgs struct {
 	ReportSectionExcludes []any
 	View                  string
 	TimeFormat            string
+	TimeZone              string
 }
 
 // Parse input arguments from Lua table args
@@ -51,16 +52,6 @@ func ParsePendlumArgs(args map[string]any) (*PendulumArgs, error) {
 			fmt.Sprintf("Type: %T\n", args["time_range"]))
 	}
 
-	view, ok := args["view"].(string)
-	if !ok {
-		return nil, errors.New("view missing or not a string. " + fmt.Sprintf("Type: %T\n", args["view"]))
-	}
-
-	timeFormat, ok := args["time_format"].(string)
-	if !ok {
-		return nil, errors.New("time_format missing or not a string. " + fmt.Sprintf("Type: %T\n", args["time_format"]))
-	}
-
 	reportExcludes, ok := args["report_excludes"].(map[string]any)
 	if !ok {
 		return nil, errors.New("report_excludes missing or not an map. " +
@@ -73,6 +64,21 @@ func ParsePendlumArgs(args map[string]any) (*PendulumArgs, error) {
 			fmt.Sprintf("Type: %T\n", args["report_section_excludes"]))
 	}
 
+	view, ok := args["view"].(string)
+	if !ok {
+		return nil, errors.New("view missing or not a string. " + fmt.Sprintf("Type: %T\n", args["view"]))
+	}
+
+	timeFormat, ok := args["time_format"].(string)
+	if !ok {
+		return nil, errors.New("time_format missing or not a string. " + fmt.Sprintf("Type: %T\n", args["time_format"]))
+	}
+
+	timeZone, ok := args["time_zone"].(string)
+	if !ok {
+		return nil, errors.New("time_zone missing or not a string. " + fmt.Sprintf("Type: %T\n", args["time_zone"]))
+	}
+
 	out := PendulumArgs{
 		LogFile:               logFile,
 		Timeout:               float64(timerLen),
@@ -83,6 +89,7 @@ func ParsePendlumArgs(args map[string]any) (*PendulumArgs, error) {
 		ReportSectionExcludes: reportSectionExcludes,
 		View:                  view,
 		TimeFormat:            timeFormat,
+		TimeZone:              timeZone,
 	}
 
 	return &out, nil

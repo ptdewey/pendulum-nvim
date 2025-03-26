@@ -68,7 +68,7 @@ func getBufText(data [][]string, args PendulumArgs) [][]byte {
 	case "metrics":
 		lines = internal.PrettifyMetrics(out, args.NMetrics)
 	case "hours":
-		lines = internal.PrettifyActiveHours(out, args.NHours, args.TimeFormat)
+		lines = internal.PrettifyActiveHours(out, args.NHours, args.TimeFormat, args.TimeZone)
 	default:
 		lines = internal.PrettifyMetrics(out, args.NMetrics)
 	}

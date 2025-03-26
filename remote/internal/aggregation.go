@@ -50,8 +50,8 @@ func AggregatePendulumMetrics(
 	data [][]string,
 	timeout_len float64,
 	rangeType string,
-	reportSectionExcludes []interface{},
-	reportExcludes map[string]interface{},
+	reportSectionExcludes []any,
+	reportExcludes map[string]any,
 ) []PendulumMetric {
 	// create waitgroup
 	var wg sync.WaitGroup
@@ -131,7 +131,7 @@ func aggregatePendulumMetric(
 	m int,
 	timeout_len float64,
 	rangeType string,
-	reportExcludes map[string]interface{},
+	reportExcludes map[string]any,
 	ch chan<- PendulumMetric,
 ) {
 	out := PendulumMetric{
@@ -167,7 +167,7 @@ func aggregatePendulumMetric(
 		val := data[i][m]
 
 		isExcluded := false
-		for _, expr := range reportExcludes[colName].([]interface{}) {
+		for _, expr := range reportExcludes[colName].([]any) {
 			r, err := regexp.Compile(expr.(string))
 			if err != nil {
 				log.Printf("Error parsing regex: %s for %s", expr, colName)

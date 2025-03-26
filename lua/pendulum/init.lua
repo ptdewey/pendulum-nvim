@@ -12,6 +12,7 @@ local default_opts = {
     top_n = 5,
     hours_n = 10,
     time_format = "12h",
+    time_zone = "UTC", -- Format "America/New_York"
     report_excludes = {
         branch = {},
         directory = {},

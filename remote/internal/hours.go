@@ -11,30 +11,36 @@ type hourFreq struct {
 	count int
 }
 
-func PrettifyActiveHours(metrics []PendulumMetric, n int, timeFormat string) []string {
+func PrettifyActiveHours(metrics []PendulumMetric, n int, timeFormat string, timeZone string) []string {
 	for _, metric := range metrics {
 		if metric.Name != "" && len(metric.Value) != 0 {
-			return []string{prettifyActiveHours(metric, n, timeFormat)}
+			return []string{prettifyActiveHours(metric, n, timeFormat, timeZone)}
 		}
 	}
 
 	return []string{}
 }
 
-func prettifyActiveHours(metric PendulumMetric, n int, timeFormat string) string {
+func prettifyActiveHours(metric PendulumMetric, n int, timeFormat string, timeZone string) string {
 	hourCounts := make(map[int]int)
 	layout := "2006-01-02 15:04:05"
 
-	// TODO: ensure there is no weird timezone stuff going on (1am maybe shouldn't be an active time for me)
-	// - conversions may need to be done (I think pendulum uses UTC -- there was some sort of local TZ issue before)?
 	for _, entry := range metric.Value {
 		for _, ts := range entry.ActiveTimestamps {
-			t, err := time.Parse(layout, ts)
+			var t time.Time
+
+			utcTime, err := time.Parse(layout, ts)
 			if err != nil {
 				fmt.Println("Failed to parse timestamp: ", ts)
 				continue
 			}
 
+			loc, err := time.LoadLocation(timeZone)
+			if err == nil {
+				t = utcTime.In(loc)
+			}
+
+			// TODO: change to sum times per hour (more accurate time estimation)
 			hourCounts[t.Hour()]++
 		}
 	}
@@ -53,8 +59,9 @@ func prettifyActiveHours(metric PendulumMetric, n int, timeFormat string) string
 	}
 
 	// TODO: convert occurrence count into percentages (count is difficult to interpret)
+	// - also sum total active time in hour, not number of occurrences
 
-	out := fmt.Sprintf("# Top %d Most Active Hours:\n", n)
+	out := "# Most Active Hours:\n"
 	for i := range n {
 		h := sortedHours[i].hour
 		c := sortedHours[i].count
@@ -72,8 +79,8 @@ func prettifyActiveHours(metric PendulumMetric, n int, timeFormat string) string
 			h = h12
 		}
 
-		// out += fmt.Sprintf(" %d. %02d:00%s-%02d:59%s : %d occurrences\n", i, h, period, h, period, c)
-		out += fmt.Sprintf(" %d. %2d%s : %d occurrences\n", i+1, h, period, c)
+		out += fmt.Sprintf("%*d. %2d %s : %d occurrences\n",
+			len(fmt.Sprintf("%d", n)), i+1, h, period, c)
 	}
 
 	return out
