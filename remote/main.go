@@ -24,7 +24,8 @@ func RpcEventHandler(v *nvim.Nvim, args map[string]interface{}) error {
 	}
 
 	// Open popup window
-	if err := pkg.CreatePopupWindow(v, buf); err != nil {
+	if err := pkg.CreateNewTab(v, buf); err != nil {
+		// if err := pkg.CreatePopupWindow(v, buf); err != nil {
 		return err
 	}
 

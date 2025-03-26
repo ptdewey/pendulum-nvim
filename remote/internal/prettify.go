@@ -22,6 +22,7 @@ func PrettifyMetrics(metrics []PendulumMetric, n int) []string {
 
 	// TODO: add printing of plugin name, log file path, and report generation time
 	// also time frame of the report
+	// - Do this in a utility function to use with the active time display as well
 
 	// iterate over each metric
 	for _, metric := range metrics {
@@ -34,7 +35,7 @@ func PrettifyMetrics(metrics []PendulumMetric, n int) []string {
 	return lines
 }
 
-// prettifyMetric converts a single PendulumMetric struct into a formatted string.
+// Function prettifyMetric converts a single PendulumMetric struct into a formatted string.
 //
 // Parameters:
 // - metric: A PendulumMetric struct containing the metric data.
@@ -46,10 +47,9 @@ func prettifyMetric(metric PendulumMetric, n int) string {
 	keys := make([]string, 0, len(metric.Value))
 	for k := range metric.Value {
 		keys = append(keys, k)
-		// TODO: get most active times of day using timestamp string arrays
 	}
 
-	// sort map by time spent active per key
+	// Sort map by time spent active per key
 	sort.SliceStable(keys, func(a int, b int) bool {
 		return metric.Value[keys[a]].ActiveTime > metric.Value[keys[b]].ActiveTime
 	})
@@ -58,9 +58,9 @@ func prettifyMetric(metric PendulumMetric, n int) string {
 		n = len(keys)
 	}
 
-	// find longest length ID value in top 5 to align text width
+	// Find longest length ID value in top 5 to align text width
 	l := 15
-	for i := 0; i < n; i++ {
+	for i := range n {
 		il := len(truncatePath(metric.Value[keys[i]].ID))
 		if l < il {
 			l = il
@@ -70,7 +70,7 @@ func prettifyMetric(metric PendulumMetric, n int) string {
 	// write out top n list
 	name := cases.Title(language.English, cases.Compact).String(metric.Name)
 	out := fmt.Sprintf("# Top %d %s:\n", n, prettifyMetricName(name))
-	for i := 0; i < n; i++ {
+	for i := range n {
 		if math.IsNaN(float64(metric.Value[keys[i]].ActivePct)) {
 			continue
 		}

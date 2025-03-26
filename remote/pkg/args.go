@@ -10,14 +10,17 @@ import (
 type PendulumArgs struct {
 	LogFile               string
 	Timeout               float64
-	TopN                  int
+	NMetrics              int
+	NHours                int
 	TimeRange             string
-	ReportExcludes        map[string]interface{}
-	ReportSectionExcludes []interface{}
+	ReportExcludes        map[string]any
+	ReportSectionExcludes []any
+	View                  string
+	TimeFormat            string
 }
 
-// Parse input arguments from lua table args
-func ParsePendlumArgs(args map[string]interface{}) (*PendulumArgs, error) {
+// Parse input arguments from Lua table args
+func ParsePendlumArgs(args map[string]any) (*PendulumArgs, error) {
 	logFile, ok := args["log_file"].(string)
 	if !ok {
 		return nil, errors.New("log_file missing or not a string. " +
@@ -30,6 +33,12 @@ func ParsePendlumArgs(args map[string]interface{}) (*PendulumArgs, error) {
 			fmt.Sprintf("Type: %T\n", args["top_n"]))
 	}
 
+	hoursN, ok := args["hours_n"].(int64)
+	if !ok {
+		return nil, errors.New("hours_n missing or not a number. " +
+			fmt.Sprintf("Type: %T\n", args["hours_n"]))
+	}
+
 	timerLen, ok := args["timer_len"].(int64)
 	if !ok {
 		return nil, errors.New("timer_len missing or not a number. " +
@@ -38,17 +47,27 @@ func ParsePendlumArgs(args map[string]interface{}) (*PendulumArgs, error) {
 
 	timeRange, ok := args["time_range"].(string)
 	if !ok {
-		return nil, errors.New("timeRange missing or not a string. " +
+		return nil, errors.New("time_range missing or not a string. " +
 			fmt.Sprintf("Type: %T\n", args["time_range"]))
 	}
 
-	reportExcludes, ok := args["report_excludes"].(map[string]interface{})
+	view, ok := args["view"].(string)
+	if !ok {
+		return nil, errors.New("view missing or not a string. " + fmt.Sprintf("Type: %T\n", args["view"]))
+	}
+
+	timeFormat, ok := args["time_format"].(string)
+	if !ok {
+		return nil, errors.New("time_format missing or not a string. " + fmt.Sprintf("Type: %T\n", args["time_format"]))
+	}
+
+	reportExcludes, ok := args["report_excludes"].(map[string]any)
 	if !ok {
 		return nil, errors.New("report_excludes missing or not an map. " +
 			fmt.Sprintf("Type: %T\n", args["report_excludes"]))
 	}
 
-	reportSectionExcludes, ok := args["report_section_excludes"].([]interface{})
+	reportSectionExcludes, ok := args["report_section_excludes"].([]any)
 	if !ok {
 		return nil, errors.New("report_excludes missing or not a list. " +
 			fmt.Sprintf("Type: %T\n", args["report_section_excludes"]))
@@ -57,10 +76,13 @@ func ParsePendlumArgs(args map[string]interface{}) (*PendulumArgs, error) {
 	out := PendulumArgs{
 		LogFile:               logFile,
 		Timeout:               float64(timerLen),
-		TopN:                  int(topN),
+		NMetrics:              int(topN),
+		NHours:                int(hoursN),
 		TimeRange:             timeRange,
 		ReportExcludes:        reportExcludes,
 		ReportSectionExcludes: reportSectionExcludes,
+		View:                  view,
+		TimeFormat:            timeFormat,
 	}
 
 	return &out, nil

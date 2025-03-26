@@ -7,7 +7,6 @@ import (
 	"github.com/neovim/go-client/nvim"
 )
 
-// CreateBuffer creates a new Neovim buffer and populates it with data.
 func CreateBuffer(v *nvim.Nvim, args PendulumArgs) (nvim.Buffer, error) {
 	// create a new buffer
 	buf, err := v.CreateBuffer(false, true)
@@ -63,7 +62,16 @@ func getBufText(data [][]string, args PendulumArgs) [][]byte {
 		args.ReportSectionExcludes,
 		args.ReportExcludes,
 	)
-	lines := internal.PrettifyMetrics(out, args.TopN)
+
+	var lines []string
+	switch args.View {
+	case "metrics":
+		lines = internal.PrettifyMetrics(out, args.NMetrics)
+	case "hours":
+		lines = internal.PrettifyActiveHours(out, args.NHours, args.TimeFormat)
+	default:
+		lines = internal.PrettifyMetrics(out, args.NMetrics)
+	}
 
 	var bufText [][]byte
 	for _, l := range lines {

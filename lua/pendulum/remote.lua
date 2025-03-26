@@ -58,15 +58,20 @@ local function setup_pendulum_commands()
             return
         end
 
-        local time_range = args.args or "all"
+        -- local time_range = args.args or "all"
+        local view = args.args
 
         local command_args = {
             log_file = options.log_file,
             timer_len = options.timer_len,
             top_n = options.top_n,
-            time_range = time_range,
+            hours_n = options.hours_n,
+            -- time_range = time_range,
+            view = view,
+            time_range = "all",
             report_excludes = options.report_excludes,
             report_section_excludes = options.report_section_excludes,
+            time_format = options.time_format,
         }
 
         local success, result =
@@ -95,11 +100,7 @@ end
 --- report generation setup (requires go)
 ---@param opts table
 function M.setup(opts)
-    options.log_file = opts.log_file
-    options.timer_len = opts.timer_len
-    options.top_n = opts.top_n or 5
-    options.report_excludes = opts.report_excludes
-    options.report_section_excludes = opts.report_section_excludes
+    options = opts
 
     -- get plugin install path
     plugin_path = debug.getinfo(1).source:sub(2):match("(.*/).*/.*/")

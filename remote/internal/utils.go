@@ -69,7 +69,6 @@ func truncatePath(path string) string {
 	return path
 }
 
-// DOC:
 func isTimestampInRange(timestampStr, rangeType string) (bool, error) {
 	layout := "2006-01-02 15:04:05"
 
