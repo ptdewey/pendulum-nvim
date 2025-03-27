@@ -58,8 +58,7 @@ func isTimestampInRange(timestampStr, rangeType string) (bool, error) {
 
 	// TEST: Add time-range option back, test tz change
 	// TEST: ensure removing `now.loc()` calls from switch date calls doesn't break things
-	tz := args.PendulumArgs().TimeZone
-	loc, err := time.LoadLocation(tz)
+	loc, err := time.LoadLocation(args.PendulumArgs().TimeZone)
 	if err == nil {
 		timestamp = timestamp.In(loc)
 	}
@@ -74,29 +73,22 @@ func isTimestampInRange(timestampStr, rangeType string) (bool, error) {
 		endOfRange = startOfRange.Add(24 * time.Hour).Add(-time.Nanosecond)
 	case "year":
 		startOfRange = time.Date(now.Year(), time.January, 1, 0, 0, 0, 0, loc)
-		endOfRange = startOfRange.Add(365 * 24 * time.Hour).Add(-time.Nanosecond)
+		endOfRange = startOfRange.AddDate(1, 0, 0).Add(-time.Nanosecond)
 	case "month":
 		startOfRange = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
 		endOfRange = startOfRange.AddDate(0, 1, 0).Add(-time.Nanosecond)
 	case "week":
-		year, week := now.ISOWeek()
-		// calculate the start of the week based on the current week and year
-		startOfWeek := time.Date(year, time.January, 1, 0, 0, 0, 0, loc)
-		for startOfWeek.Weekday() != time.Monday {
-			startOfWeek = startOfWeek.AddDate(0, 0, 1)
-		}
-		startOfRange = startOfWeek.AddDate(0, 0, (week-1)*7)
-		endOfRange = startOfRange.Add(7 * 24 * time.Hour).Add(-time.Nanosecond)
+		startOfRange = now.AddDate(0, 0, -6)
+		endOfRange = now.Add(24*time.Hour - time.Nanosecond)
 	case "hour":
-		startOfRange = time.Date(now.Year(), now.Month(), now.Day(), now.Hour()-1, now.Minute(), now.Second(), 0, loc)
-		endOfRange = startOfRange.Add(1 * time.Hour).Add(-time.Nanosecond)
+		startOfRange = now.Truncate(time.Hour)
+		endOfRange = startOfRange.Add(time.Hour).Add(-time.Nanosecond)
 	default:
-		// default to "all" range if input is invalid or not provided
 		startOfRange = time.Time{}
 		endOfRange = time.Time{}
 	}
 
-	// handle the default "all" range case (from the earliest possible time to the latest possible time)
+	// Handle the default "all" range case (from the earliest possible time to the latest possible time)
 	if rangeType == "all" || startOfRange.IsZero() || endOfRange.IsZero() {
 		startOfRange = time.Time{}
 		endOfRange = time.Now().Add(1 * time.Second)

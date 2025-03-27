@@ -15,16 +15,18 @@ type PendulumMetric struct {
 }
 
 type PendulumEntry struct {
-	ID               string
-	ActiveCount      uint
-	TotalCount       uint
-	ActiveTime       time.Duration
-	ActiveTimeHours  map[int]time.Duration
-	TotalTime        time.Duration
-	TotalTimeHours   map[int]time.Duration
-	ActiveTimestamps []string
-	Timestamps       []string
-	ActivePct        float32
+	ID                    string
+	ActiveCount           uint
+	TotalCount            uint
+	ActiveTime            time.Duration
+	ActiveTimeHours       map[int]time.Duration
+	ActiveTimeHoursRecent map[int]time.Duration
+	TotalTime             time.Duration
+	TotalTimeHours        map[int]time.Duration
+	TotalTimeHoursRecent  map[int]time.Duration
+	ActiveTimestamps      []string
+	Timestamps            []string
+	ActivePct             float32
 }
 
 var csvColumns = map[string]int{
@@ -158,12 +160,14 @@ func aggregatePendulumMetric(
 		}
 
 		// TODO: add header to popup window showing the timeframe used (in buffer.go)
-		inRange, err := isTimestampInRange(data[i][timecol], rangeType)
-		if err != nil {
-			panic(err)
-		}
-		if !inRange {
-			continue
+		if rangeType != "all" {
+			inRange, err := isTimestampInRange(data[i][timecol], rangeType)
+			if err != nil {
+				panic(err)
+			}
+			if !inRange {
+				continue
+			}
 		}
 
 		val := data[i][m]
@@ -191,16 +195,18 @@ func aggregatePendulumMetric(
 		// check if key doesn't exist in value map
 		if out.Value[val] == nil {
 			out.Value[val] = &PendulumEntry{
-				ID:               val,
-				ActiveCount:      0,
-				TotalCount:       0,
-				ActiveTime:       0,
-				TotalTime:        0,
-				Timestamps:       make([]string, 0),
-				ActiveTimestamps: make([]string, 0),
-				ActiveTimeHours:  map[int]time.Duration{},
-				TotalTimeHours:   map[int]time.Duration{},
-				ActivePct:        0,
+				ID:                    val,
+				ActiveCount:           0,
+				TotalCount:            0,
+				ActiveTime:            0,
+				TotalTime:             0,
+				Timestamps:            make([]string, 0),
+				ActiveTimestamps:      make([]string, 0),
+				ActiveTimeHours:       map[int]time.Duration{},
+				TotalTimeHours:        map[int]time.Duration{},
+				ActiveTimeHoursRecent: map[int]time.Duration{},
+				TotalTimeHoursRecent:  map[int]time.Duration{},
+				ActivePct:             0,
 			}
 		}
 		pv := out.Value[val]
@@ -228,6 +234,15 @@ func aggregatePendulumMetric(
 
 		pv.TotalTimeHours[t.Hour()] += tth
 
+		// Recent (last week) total hours
+		inRange, err := isTimestampInRange(data[i][timecol], "week")
+		if err != nil {
+			panic(err)
+		}
+		if inRange {
+			pv.TotalTimeHoursRecent[t.Hour()] += tth
+		}
+
 		// active-only metrics aggregation
 		if active == true {
 			pv.ActiveCount++
@@ -246,6 +261,16 @@ func aggregatePendulumMetric(
 			}
 
 			pv.ActiveTimeHours[t.Hour()] += ath
+
+			// TEST: does not seem to be working
+			// Recent (last week) active hours
+			inRange, err := isTimestampInRange(data[i][timecol], "week")
+			if err != nil {
+				panic(err)
+			}
+			if inRange {
+				pv.ActiveTimeHoursRecent[t.Hour()] += ath
+			}
 		}
 	}
 

@@ -61,7 +61,10 @@ func prettifyActiveHours(metric data.PendulumMetric, n int, timeFormat string, t
 			hourDurations[t.In(loc).Hour()] += v
 		}
 
-		// TODO: populate weekHourDurations (needs to be done in aggregation)
+		for k, v := range entry.ActiveTimeHoursRecent {
+			t := time.Date(2006, 1, 2, k, 0, 0, 0, time.UTC)
+			weekHourDurations[t.In(loc).Hour()] += v
+		}
 	}
 
 	// Create a slice of hourDuration structs to sort by duration
