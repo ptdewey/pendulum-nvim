@@ -228,8 +228,6 @@ func aggregatePendulumMetric(
 
 		pv.TotalTimeHours[t.Hour()] += tth
 
-		// TODO: Time per hour
-
 		// active-only metrics aggregation
 		if active == true {
 			pv.ActiveCount++

@@ -33,6 +33,7 @@ type hourDuration struct {
 func prettifyActiveHours(metric data.PendulumMetric, n int, timeFormat string, timeZone string) string {
 	hourCounts := make(map[int]int)
 	hourDurations := make(map[int]time.Duration)
+	weekHourDurations := make(map[int]time.Duration)
 	totalCount := 0
 
 	loc, err := time.LoadLocation(timeZone)
@@ -59,6 +60,8 @@ func prettifyActiveHours(metric data.PendulumMetric, n int, timeFormat string, t
 			t := time.Date(2006, 1, 2, k, 0, 0, 0, time.UTC)
 			hourDurations[t.In(loc).Hour()] += v
 		}
+
+		// TODO: populate weekHourDurations (needs to be done in aggregation)
 	}
 
 	// Create a slice of hourDuration structs to sort by duration
@@ -76,20 +79,26 @@ func prettifyActiveHours(metric data.PendulumMetric, n int, timeFormat string, t
 		n = len(hourDurationSlice)
 	}
 
-	// Calculate max width for entries
-	maxCountWidth := 0
-	for _, entry := range hourDurationSlice {
-		countWidth := len(fmt.Sprintf("%v", entry.duration))
-		if countWidth > maxCountWidth {
-			maxCountWidth = countWidth
-		}
-	}
+	// Column width stuff
+	bulletWidth := len(fmt.Sprintf("%d", n))
+	timeWidth := 8
+	overallWidth := 13
+	weeklyWidth := 13
+	countWidth := 3
 
-	out := "# Most Active Hours:\n"
+	// Header formatting
+	out := fmt.Sprintf("# Times Most Active\n")
+	out += fmt.Sprintf("%*s  %-*s %-*s %-*s %-*s\n",
+		bulletWidth, "", timeWidth, "Time", overallWidth, "Overall",
+		weeklyWidth, "This Week", countWidth, "Entry Count",
+	)
+
+	// Loop through results and format accordingly
 	for i := range n {
 		h24 := hourDurationSlice[i].hour
-		c := hourCounts[h24] // Get count from hourCounts
+		c := hourCounts[h24]
 		dur := hourDurations[h24]
+		weeklyDur := weekHourDurations[h24]
 
 		h := h24
 		var period string
@@ -104,13 +113,14 @@ func prettifyActiveHours(metric data.PendulumMetric, n int, timeFormat string, t
 			}
 		}
 
-		// out += fmt.Sprintf("%*d. %2d %s : %*d entries (%6.2f%%) -- %v\n",
-		// 	len(fmt.Sprintf("%d", n)), i+1, h, period, maxCountWidth, c, float64(c)/totalCount*100, dur)
-
-		// TODO: change display to have multiple columns (overall, week, day? -- remove redundant "entries" text (move to column header))
-
-		out += fmt.Sprintf("%*d. %2d %s : %*v -- %d entries (%.2f%%)\n",
-			len(fmt.Sprintf("%d", n)), i+1, h, period, maxCountWidth, dur, c, float64(c)/float64(totalCount)*100)
+		out += fmt.Sprintf("%*d. %2d%s %-*s %-*v %-*v %-*d (%.2f%%)\n",
+			bulletWidth, i+1,
+			h, period,
+			timeWidth-5, "",
+			overallWidth, dur,
+			weeklyWidth, weeklyDur,
+			countWidth, c, float64(c)/float64(totalCount)*100,
+		)
 	}
 
 	return out
