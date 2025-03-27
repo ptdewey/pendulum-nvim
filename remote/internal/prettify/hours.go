@@ -116,6 +116,7 @@ func prettifyActiveHours(metric data.PendulumMetric, n int, timeFormat string, t
 			}
 		}
 
+		// TODO: show percentage active time (out of total)
 		out += fmt.Sprintf("%*d. %2d%s %-*s %-*v %-*v %-*d (%.2f%%)\n",
 			bulletWidth, i+1,
 			h, period,
