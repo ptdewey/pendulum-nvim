@@ -19,7 +19,9 @@ type PendulumEntry struct {
 	ActiveCount      uint
 	TotalCount       uint
 	ActiveTime       time.Duration
+	ActiveTimeHours  map[int]time.Duration
 	TotalTime        time.Duration
+	TotalTimeHours   map[int]time.Duration
 	ActiveTimestamps []string
 	Timestamps       []string
 	ActivePct        float32
@@ -158,7 +160,7 @@ func aggregatePendulumMetric(
 		// TODO: add header to popup window showing the timeframe used (in buffer.go)
 		inRange, err := isTimestampInRange(data[i][timecol], rangeType)
 		if err != nil {
-			return
+			panic(err)
 		}
 		if !inRange {
 			continue
@@ -196,6 +198,9 @@ func aggregatePendulumMetric(
 				TotalTime:        0,
 				Timestamps:       make([]string, 0),
 				ActiveTimestamps: make([]string, 0),
+				ActiveTimeHours:  map[int]time.Duration{},
+				TotalTimeHours:   map[int]time.Duration{},
+				ActivePct:        0,
 			}
 		}
 		pv := out.Value[val]
@@ -203,23 +208,46 @@ func aggregatePendulumMetric(
 		// metrics aggregation
 		pv.TotalCount++
 		pv.Timestamps = append(pv.Timestamps, data[i][timecol])
-		t, err := timeDiff(pv.Timestamps, timeout_len)
+		tt, err := timeDiff(pv.Timestamps, timeout_len, false)
 		if err != nil {
-			return
+			panic(err)
 		}
 
-		pv.TotalTime += t
+		pv.TotalTime += tt
+
+		layout := "2006-01-02 15:04:05"
+		t, err := time.Parse(layout, data[i][timecol])
+		if err != nil {
+			panic(err)
+		}
+
+		tth, err := timeDiff(pv.Timestamps, timeout_len, true)
+		if err != nil {
+			panic(err)
+		}
+
+		pv.TotalTimeHours[t.Hour()] += tth
+
+		// TODO: Time per hour
 
 		// active-only metrics aggregation
 		if active == true {
 			pv.ActiveCount++
 			pv.ActiveTimestamps = append(pv.ActiveTimestamps, data[i][timecol])
-			t, err := timeDiff(pv.ActiveTimestamps, timeout_len)
+			at, err := timeDiff(pv.ActiveTimestamps, timeout_len, false)
 			if err != nil {
-				return
+				panic(err)
 			}
 
-			pv.ActiveTime += t
+			pv.ActiveTime += at
+
+			// Extract active time per hour
+			ath, err := timeDiff(pv.ActiveTimestamps, timeout_len, true)
+			if err != nil {
+				panic(err)
+			}
+
+			pv.ActiveTimeHours[t.Hour()] += ath
 		}
 	}
 
@@ -241,14 +269,21 @@ func aggregatePendulumMetric(
 // Returns:
 // - A time.Duration representing the time difference if it is within the timeout length.
 // - An error if there is an issue parsing the timestamps.
-func timeDiff(timestamps []string, timeout_len float64) (time.Duration, error) {
+func timeDiff(timestamps []string, timeout_len float64, clamp bool) (time.Duration, error) {
 	n := len(timestamps)
 	if n < 2 {
 		return time.Duration(0), nil
 	}
 
 	curr, prev := timestamps[n-1], timestamps[n-2]
-	d, err := calcDuration(curr, prev)
+	var d time.Duration
+	var err error
+	if !clamp {
+		d, err = calcDuration(curr, prev)
+	} else {
+		d, err = calcDurationWithinHour(curr, prev)
+	}
+
 	if err != nil {
 		return time.Duration(0), err
 	}

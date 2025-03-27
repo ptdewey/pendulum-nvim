@@ -25,66 +25,92 @@ func PrettifyActiveHours(metrics []data.PendulumMetric) []string {
 	return []string{}
 }
 
+type hourDuration struct {
+	hour     int
+	duration time.Duration
+}
+
 func prettifyActiveHours(metric data.PendulumMetric, n int, timeFormat string, timeZone string) string {
 	hourCounts := make(map[int]int)
-	layout := "2006-01-02 15:04:05"
+	hourDurations := make(map[int]time.Duration)
+	totalCount := 0
 
+	loc, err := time.LoadLocation(timeZone)
+	if err != nil {
+		loc = time.UTC
+	}
+
+	layout := "2006-01-02 15:04:05"
 	for _, entry := range metric.Value {
 		for _, ts := range entry.ActiveTimestamps {
 			var t time.Time
 
-			utcTime, err := time.Parse(layout, ts)
+			t, err := time.Parse(layout, ts)
 			if err != nil {
 				fmt.Println("Failed to parse timestamp: ", ts)
 				continue
 			}
 
-			loc, err := time.LoadLocation(timeZone)
-			if err == nil {
-				t = utcTime.In(loc)
-			}
+			hourCounts[t.In(loc).Hour()]++
+			totalCount++
+		}
 
-			// TODO: change to sum times per hour (more accurate time estimation)
-			hourCounts[t.Hour()]++
+		for k, v := range entry.ActiveTimeHours {
+			t := time.Date(2006, 1, 2, k, 0, 0, 0, time.UTC)
+			hourDurations[t.In(loc).Hour()] += v
 		}
 	}
 
-	var sortedHours []hourFreq
-	for hour, count := range hourCounts {
-		sortedHours = append(sortedHours, hourFreq{hour: hour, count: count})
+	// Create a slice of hourDuration structs to sort by duration
+	var hourDurationSlice []hourDuration
+	for hour, duration := range hourDurations {
+		hourDurationSlice = append(hourDurationSlice, hourDuration{hour: hour, duration: duration})
 	}
 
-	sort.SliceStable(sortedHours, func(a int, b int) bool {
-		return sortedHours[a].count > sortedHours[b].count
+	// Sort by duration (largest first)
+	sort.SliceStable(hourDurationSlice, func(a, b int) bool {
+		return hourDurationSlice[a].duration > hourDurationSlice[b].duration
 	})
 
-	if n > len(sortedHours) {
-		n = len(sortedHours)
+	if n > len(hourDurationSlice) {
+		n = len(hourDurationSlice)
 	}
 
-	// TODO: convert occurrence count into percentages (count is difficult to interpret)
-	// - also sum total active time in hour, not number of occurrences
+	// Calculate max width for entries
+	maxCountWidth := 0
+	for _, entry := range hourDurationSlice {
+		countWidth := len(fmt.Sprintf("%v", entry.duration))
+		if countWidth > maxCountWidth {
+			maxCountWidth = countWidth
+		}
+	}
 
 	out := "# Most Active Hours:\n"
 	for i := range n {
-		h := sortedHours[i].hour
-		c := sortedHours[i].count
+		h24 := hourDurationSlice[i].hour
+		c := hourCounts[h24] // Get count from hourCounts
+		dur := hourDurations[h24]
 
+		h := h24
 		var period string
 		if timeFormat == "12h" {
-			h12 := h % 12
-			if h12 == 0 {
-				h12 = 12
+			h = h24 % 12
+			if h == 0 {
+				h = 12
 			}
 			period = "AM"
-			if h >= 12 {
+			if h24 >= 12 {
 				period = "PM"
 			}
-			h = h12
 		}
 
-		out += fmt.Sprintf("%*d. %2d %s : %d occurrences\n",
-			len(fmt.Sprintf("%d", n)), i+1, h, period, c)
+		// out += fmt.Sprintf("%*d. %2d %s : %*d entries (%6.2f%%) -- %v\n",
+		// 	len(fmt.Sprintf("%d", n)), i+1, h, period, maxCountWidth, c, float64(c)/totalCount*100, dur)
+
+		// TODO: change display to have multiple columns (overall, week, day? -- remove redundant "entries" text (move to column header))
+
+		out += fmt.Sprintf("%*d. %2d %s : %*v -- %d entries (%.2f%%)\n",
+			len(fmt.Sprintf("%d", n)), i+1, h, period, maxCountWidth, dur, c, float64(c)/float64(totalCount)*100)
 	}
 
 	return out
