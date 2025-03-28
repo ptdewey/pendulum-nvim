@@ -3,8 +3,38 @@ package data
 import (
 	"fmt"
 	"pendulum-nvim/pkg/args"
+	"regexp"
 	"time"
 )
+
+// timeDiff calculates the time difference between the last two timestamps.
+// REFACTOR: take in 2 timestamps instead of a slice
+func timeDiff(timestamps []string, timeoutLen float64, clamp bool) (time.Duration, error) {
+	n := len(timestamps)
+	if n < 2 {
+		return time.Duration(0), nil
+	}
+
+	curr, prev := timestamps[n-1], timestamps[n-2]
+	var d time.Duration
+	var err error
+	if !clamp {
+		d, err = calcDuration(curr, prev)
+	} else {
+		d, err = calcDurationWithinHour(curr, prev)
+	}
+
+	if err != nil {
+		return time.Duration(0), err
+	}
+
+	// if difference between timestamps exceeds timeout length then editor was closed between sessions.
+	if d.Seconds() > timeoutLen {
+		return time.Duration(0), nil
+	}
+
+	return d, nil
+}
 
 // calculate the duration between two string timestamps (curr - prev)
 func calcDuration(curr string, prev string) (time.Duration, error) {
@@ -46,6 +76,29 @@ func calcDurationWithinHour(curr string, prev string) (time.Duration, error) {
 		0, 0, 0, curr_t.Location())
 
 	return curr_t.Sub(clamped_prev_t), nil
+}
+
+func compileRegexPatterns(filters any) ([]*regexp.Regexp, error) {
+	var patterns []*regexp.Regexp
+	for _, expr := range filters.([]any) {
+		r, err := regexp.Compile(expr.(string))
+		if err != nil {
+			return nil, err
+		}
+
+		patterns = append(patterns, r)
+	}
+
+	return patterns, nil
+}
+
+func isExcluded(val string, patterns []*regexp.Regexp) bool {
+	for _, r := range patterns {
+		if r.MatchString(val) {
+			return true
+		}
+	}
+	return false
 }
 
 func isTimestampInRange(timestampStr, rangeType string) (bool, error) {

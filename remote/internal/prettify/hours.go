@@ -13,16 +13,10 @@ type hourFreq struct {
 	count int
 }
 
-func PrettifyActiveHours(metrics []data.PendulumMetric) []string {
+func PrettifyActiveHours(hours *data.PendulumHours) []string {
 	pendulumArgs := args.PendulumArgs()
-	for _, metric := range metrics {
-		if metric.Name != "" && len(metric.Value) != 0 {
-			return []string{prettifyActiveHours(metric, pendulumArgs.NHours,
-				pendulumArgs.TimeFormat, pendulumArgs.TimeZone)}
-		}
-	}
-
-	return []string{}
+	return []string{prettifyActiveHours(hours, pendulumArgs.NHours,
+		pendulumArgs.TimeFormat, pendulumArgs.TimeZone)}
 }
 
 type hourDuration struct {
@@ -30,7 +24,7 @@ type hourDuration struct {
 	duration time.Duration
 }
 
-func prettifyActiveHours(metric data.PendulumMetric, n int, timeFormat string, timeZone string) string {
+func prettifyActiveHours(hours *data.PendulumHours, n int, timeFormat string, timeZone string) string {
 	hourCounts := make(map[int]int)
 	hourDurations := make(map[int]time.Duration)
 	weekHourDurations := make(map[int]time.Duration)
@@ -42,29 +36,27 @@ func prettifyActiveHours(metric data.PendulumMetric, n int, timeFormat string, t
 	}
 
 	layout := "2006-01-02 15:04:05"
-	for _, entry := range metric.Value {
-		for _, ts := range entry.ActiveTimestamps {
-			var t time.Time
+	for _, ts := range hours.ActiveTimestamps {
+		var t time.Time
 
-			t, err := time.Parse(layout, ts)
-			if err != nil {
-				fmt.Println("Failed to parse timestamp: ", ts)
-				continue
-			}
-
-			hourCounts[t.In(loc).Hour()]++
-			totalCount++
+		t, err := time.Parse(layout, ts)
+		if err != nil {
+			fmt.Println("Failed to parse timestamp: ", ts)
+			continue
 		}
 
-		for k, v := range entry.ActiveTimeHours {
-			t := time.Date(2006, 1, 2, k, 0, 0, 0, time.UTC)
-			hourDurations[t.In(loc).Hour()] += v
-		}
+		hourCounts[t.In(loc).Hour()]++
+		totalCount++
+	}
 
-		for k, v := range entry.ActiveTimeHoursRecent {
-			t := time.Date(2006, 1, 2, k, 0, 0, 0, time.UTC)
-			weekHourDurations[t.In(loc).Hour()] += v
-		}
+	for k, v := range hours.ActiveTimeHours {
+		t := time.Date(2006, 1, 2, k, 0, 0, 0, time.UTC)
+		hourDurations[t.In(loc).Hour()] += v
+	}
+
+	for k, v := range hours.ActiveTimeHoursRecent {
+		t := time.Date(2006, 1, 2, k, 0, 0, 0, time.UTC)
+		weekHourDurations[t.In(loc).Hour()] += v
 	}
 
 	// Create a slice of hourDuration structs to sort by duration

@@ -54,8 +54,7 @@ func ParsePendlumArgs(args map[string]any) error {
 
 	timeRange, ok := args["time_range"].(string)
 	if !ok {
-		return errors.New("time_range missing or not a string. " +
-			fmt.Sprintf("Type: %T\n", args["time_range"]))
+		timeRange = "all"
 	}
 
 	reportExcludes, ok := args["report_excludes"].(map[string]any)

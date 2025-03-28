@@ -46,32 +46,18 @@ func CreateBuffer(v *nvim.Nvim) (nvim.Buffer, error) {
 	return buf, nil
 }
 
-// getBufText processes the pendulum data and returns the text to be displayed in the buffer.
-//
-// Parameters:
-// - data: A 2D slice of strings representing the pendulum data.
-//
-// Returns:
-// - A 2D slice of bytes representing the text to be set in the buffer.
 func getBufText(pendulumData [][]string) [][]byte {
 	pendulumArgs := args.PendulumArgs()
 
-	out := data.AggregatePendulumMetrics(
-		pendulumData[:],
-		pendulumArgs.Timeout,
-		pendulumArgs.TimeRange,
-		pendulumArgs.ReportSectionExcludes,
-		pendulumArgs.ReportExcludes,
-	)
-
+	// TODO: add header to popup window showing the current view
 	var lines []string
 	switch pendulumArgs.View {
 	case "metrics":
+		out := data.AggregatePendulumMetrics(pendulumData[:])
 		lines = prettify.PrettifyMetrics(out)
 	case "hours":
+		out := data.AggregatePendlulumHours(pendulumData)
 		lines = prettify.PrettifyActiveHours(out)
-	default:
-		lines = prettify.PrettifyMetrics(out)
 	}
 
 	var bufText [][]byte
