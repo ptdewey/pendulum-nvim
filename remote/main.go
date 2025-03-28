@@ -13,7 +13,7 @@ import (
 // RpcEventHandler handles the RPC call from Lua and creates a buffer with pendulum data.
 func RpcEventHandler(v *nvim.Nvim, luaArgs map[string]any) error {
 	// Extract and validate arguments from input table
-	err := args.ParsePendlumArgs(luaArgs)
+	err := args.ParsePendulumArgs(luaArgs)
 	if err != nil {
 		return err
 	}

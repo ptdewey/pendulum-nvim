@@ -27,7 +27,7 @@ func PendulumArgs() *PendulumNvimArgs {
 }
 
 // Parse input arguments from Lua table args
-func ParsePendlumArgs(args map[string]any) error {
+func ParsePendulumArgs(args map[string]any) error {
 	logFile, ok := args["log_file"].(string)
 	if !ok {
 		return errors.New("log_file missing or not a string. " +
