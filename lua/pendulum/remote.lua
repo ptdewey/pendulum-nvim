@@ -58,23 +58,31 @@ local function setup_pendulum_commands()
             return
         end
 
-        local time_range = args.args or "all"
-
-        local command_args = {
-            log_file = options.log_file,
-            timer_len = options.timer_len,
-            top_n = options.top_n,
-            time_range = time_range,
-            report_excludes = options.report_excludes,
-            report_section_excludes = options.report_section_excludes,
-        }
+        options.time_range = args.args or "all"
+        options.view = "metrics"
 
         local success, result =
-            pcall(vim.fn.rpcrequest, chan, "pendulum", command_args)
+            pcall(vim.fn.rpcrequest, chan, "pendulum", options)
         if not success then
             print("RPC request failed: " .. result)
         end
     end, { nargs = "?" })
+
+    vim.api.nvim_create_user_command("PendulumHours", function(args)
+        chan = ensure_job()
+        if not chan or chan == 0 then
+            print("Error: Invalid channel")
+            return
+        end
+
+        options.view = "hours"
+
+        local success, result =
+            pcall(vim.fn.rpcrequest, chan, "pendulum", options)
+        if not success then
+            print("RPC request failed: " .. result)
+        end
+    end, { nargs = 0 })
 
     vim.api.nvim_create_user_command("PendulumRebuild", function()
         print("Rebuilding Pendulum binary with Go...")
@@ -95,11 +103,7 @@ end
 --- report generation setup (requires go)
 ---@param opts table
 function M.setup(opts)
-    options.log_file = opts.log_file
-    options.timer_len = opts.timer_len
-    options.top_n = opts.top_n or 5
-    options.report_excludes = opts.report_excludes
-    options.report_section_excludes = opts.report_section_excludes
+    options = opts
 
     -- get plugin install path
     plugin_path = debug.getinfo(1).source:sub(2):match("(.*/).*/.*/")
@@ -122,8 +126,6 @@ function M.setup(opts)
         uv.fs_close(handle)
         return
     end
-
-    -- TODO: check if go is installed and is correct version
 
     -- compile binary if it doesn't exist
     print(

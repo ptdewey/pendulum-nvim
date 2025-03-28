@@ -4,7 +4,9 @@ Pendulum is a Neovim plugin designed for tracking time spent on projects within 
 
 Pendulum also includes a user command that aggregates log information into a popup report viewable within your editor
 
-![Pendulum Popup](./assets/screenshot0.png)
+![Pendulum Metrics View](./assets/screenshot0.png)
+
+![Pendulum Active Hours View](./assets/screenshot1.png)
 
 ## Motivation
 
@@ -61,6 +63,9 @@ Pendulum can be customized with several options. Here is a table with configurab
 | `timer_len`                 | Interval in seconds at which to check activity          | `120`                    |
 | `gen_reports`               | Generate reports from the log file                      | `true`                   |
 | `top_n`                     | Number of top entries to include in the report          | `5`                      |
+| `hours_n`                   | Number of entries to show in active hours report        | `10`                     |
+| `time_format`               | Use 12/24 hour time format for active hours report (possible values: `12h`, `24h`) | `12h` |
+| `time_zone`                 | Time zone for use in active hour calculations (format: `America/New_York`) | `UTC` |
 | `report_section_excludes`   | Additional filters to be applied to each report section | `{}`                     |
 | `report_excludes`           | Show/Hide report sections. e.g `branch`, `directory`, `file`, `filetype`, `project` | `{}` |
 
@@ -73,6 +78,9 @@ require('pendulum').setup({
     timer_len = 60,     -- 1 minute
     gen_reports = true, -- Enable report generation (requires Go)
     top_n = 10,         -- Include top 10 entries in the report
+    hours_n = 10,
+    time_format = "12h",
+    time_zone = "America/New_York",
     report_section_excludes = {
         "branch",       -- Hide `branch` section of the report
         -- Other options includes:
@@ -122,12 +130,17 @@ To rebuild the Pendulum binary and generate reports, use the following commands:
 ```vim
 :PendulumRebuild
 :Pendulum
+:PendulumHours
 ```
 
-The :PendulumRebuild command recompiles the Go binary, and the :Pendulum command generates the report based on the current log file.
+The `:PendulumRebuild` command recompiles the Go binary, and the :Pendulum command generates the report based on the current log file.
 I recommend rebuilding the binary after the plugin is updated.
 
-If you do not want to install Go, report generation can be disabled by changing the `gen_reports` option to `false`. Disabling reports will cause the `Pendulum` and `PendulumRebuild` commands to not be created since they are exclusively used for the reports feature.
+The `:Pendulum` command generates and shows the metrics view (i.e. time spent per branch, project, filetype, etc.). Report generation will take longer as the size of your log file increases.
+
+The `:PendulumHours` command generates and shows the active hours view, which shows which times of day you are most active (and time spent).
+
+If you do not want to install Go, report generation can be disabled by changing the `gen_reports` option to `false`. Disabling reports will cause the `Pendulum`, `PendulumHours`, and `PendulumRebuild` commands to not be created since they are exclusively used for the reports feature.
 
 ```lua
 config = function()
@@ -138,7 +151,7 @@ config = function()
 end,
 ```
 
-The report contents are customizable and section items or entire sections can be excluded from the report if desired. (See `report_excludes` and `report_section_excludes` options in setup)
+The metrics report contents are customizable and section items or entire sections can be excluded from the report if desired. (See `report_excludes` and `report_section_excludes` options in setup)
 
 ## Future Ideas
 

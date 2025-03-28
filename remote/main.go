@@ -5,25 +5,27 @@ import (
 	"log"
 	"os"
 	"pendulum-nvim/pkg"
+	"pendulum-nvim/pkg/args"
 
 	"github.com/neovim/go-client/nvim"
 )
 
 // RpcEventHandler handles the RPC call from Lua and creates a buffer with pendulum data.
-func RpcEventHandler(v *nvim.Nvim, args map[string]interface{}) error {
+func RpcEventHandler(v *nvim.Nvim, luaArgs map[string]any) error {
 	// Extract and validate arguments from input table
-	pendulumArgs, err := pkg.ParsePendlumArgs(args)
+	err := args.ParsePendlumArgs(luaArgs)
 	if err != nil {
 		return err
 	}
 
 	// Call CreateBuffer with the struct
-	buf, err := pkg.CreateBuffer(v, *pendulumArgs)
+	buf, err := pkg.CreateBuffer(v)
 	if err != nil {
 		return err
 	}
 
 	// Open popup window
+	// if err := pkg.CreateNewTab(v, buf); err != nil {
 	if err := pkg.CreatePopupWindow(v, buf); err != nil {
 		return err
 	}
@@ -45,14 +47,14 @@ func main() {
 	}
 
 	// Register the "pendulum" RPC handler, which receives Lua tables
-	v.RegisterHandler("pendulum", func(v *nvim.Nvim, args ...interface{}) error {
+	v.RegisterHandler("pendulum", func(v *nvim.Nvim, args ...any) error {
 		// Expecting the first argument to be a map (Lua table)
 		if len(args) < 1 {
 			return errors.New("not enough arguments")
 		}
 
 		// Parse the first argument as a map
-		argMap, ok := args[0].(map[string]interface{})
+		argMap, ok := args[0].(map[string]any)
 		if !ok {
 			return errors.New("expected a map as the first argument")
 		}

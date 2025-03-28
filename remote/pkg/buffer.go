@@ -1,14 +1,15 @@
 package pkg
 
 import (
-	"pendulum-nvim/internal"
+	"pendulum-nvim/internal/data"
+	"pendulum-nvim/internal/prettify"
+	"pendulum-nvim/pkg/args"
 	"strings"
 
 	"github.com/neovim/go-client/nvim"
 )
 
-// CreateBuffer creates a new Neovim buffer and populates it with data.
-func CreateBuffer(v *nvim.Nvim, args PendulumArgs) (nvim.Buffer, error) {
+func CreateBuffer(v *nvim.Nvim) (nvim.Buffer, error) {
 	// create a new buffer
 	buf, err := v.CreateBuffer(false, true)
 	if err != nil {
@@ -21,13 +22,13 @@ func CreateBuffer(v *nvim.Nvim, args PendulumArgs) (nvim.Buffer, error) {
 	}
 
 	// read pendulum data file
-	data, err := internal.ReadPendulumLogFile(args.LogFile)
+	data, err := data.ReadPendulumLogFile(args.PendulumArgs().LogFile)
 	if err != nil {
 		return buf, err
 	}
 
 	// get prettified buffer text
-	bufText := getBufText(data, args)
+	bufText := getBufText(data)
 
 	// set contents of new buffer
 	if err := v.SetBufferLines(buf, 0, -1, false, bufText); err != nil {
@@ -45,25 +46,19 @@ func CreateBuffer(v *nvim.Nvim, args PendulumArgs) (nvim.Buffer, error) {
 	return buf, nil
 }
 
-// getBufText processes the pendulum data and returns the text to be displayed in the buffer.
-//
-// Parameters:
-// - data: A 2D slice of strings representing the pendulum data.
-// - timeoutLen: A float64 representing the timeout length.
-// - n: An integer representing the number of data points to aggregate.
-// - rangeType: A string representing the time window to aggregate data for ("all" is recommended)
-//
-// Returns:
-// - A 2D slice of bytes representing the text to be set in the buffer.
-func getBufText(data [][]string, args PendulumArgs) [][]byte {
-	out := internal.AggregatePendulumMetrics(
-		data[:],
-		args.Timeout,
-		args.TimeRange,
-		args.ReportSectionExcludes,
-		args.ReportExcludes,
-	)
-	lines := internal.PrettifyMetrics(out, args.TopN)
+func getBufText(pendulumData [][]string) [][]byte {
+	pendulumArgs := args.PendulumArgs()
+
+	// TODO: add header to popup window showing the current view
+	var lines []string
+	switch pendulumArgs.View {
+	case "metrics":
+		out := data.AggregatePendulumMetrics(pendulumData[:])
+		lines = prettify.PrettifyMetrics(out)
+	case "hours":
+		out := data.AggregatePendlulumHours(pendulumData)
+		lines = prettify.PrettifyActiveHours(out)
+	}
 
 	var bufText [][]byte
 	for _, l := range lines {
