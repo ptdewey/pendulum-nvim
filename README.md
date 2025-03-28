@@ -69,7 +69,30 @@ Pendulum can be customized with several options. Here is a table with configurab
 | `report_section_excludes`   | Additional filters to be applied to each report section | `{}`                     |
 | `report_excludes`           | Show/Hide report sections. e.g `branch`, `directory`, `file`, `filetype`, `project` | `{}` |
 
-Example configuration with custom options:
+Default configuration
+
+```lua
+require("pendulum").setup({
+    log_file = vim.env.HOME .. "/pendulum-log.csv",
+    timeout_len = 180,
+    timer_len = 120,
+    gen_reports = true,
+    top_n = 5,
+    hours_n = 10,
+    time_format = "12h",
+    time_zone = "UTC", -- Format "America/New_York"
+    report_excludes = {
+        branch = {},
+        directory = {},
+        file = {},
+        filetype = {},
+        project = {},
+    },
+    report_section_excludes = {},
+})
+```
+
+Example configuration with custom options: (Note: this is not the recommended configuration, but just shows potential options)
 
 ```lua
 require('pendulum').setup({
