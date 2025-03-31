@@ -3,9 +3,10 @@ package prettify
 import (
 	"fmt"
 	"math"
-	"pendulum-nvim/internal/data"
-	"pendulum-nvim/pkg/args"
 	"sort"
+
+	"github.com/ptdewey/pendulum-nvim/internal/data"
+	"github.com/ptdewey/pendulum-nvim/pkg/args"
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"

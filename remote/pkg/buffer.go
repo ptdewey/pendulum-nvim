@@ -1,10 +1,11 @@
 package pkg
 
 import (
-	"pendulum-nvim/internal/data"
-	"pendulum-nvim/internal/prettify"
-	"pendulum-nvim/pkg/args"
 	"strings"
+
+	"github.com/ptdewey/pendulum-nvim/internal/data"
+	"github.com/ptdewey/pendulum-nvim/internal/prettify"
+	"github.com/ptdewey/pendulum-nvim/pkg/args"
 
 	"github.com/neovim/go-client/nvim"
 )

@@ -1,4 +1,4 @@
-module pendulum-nvim
+module github.com/ptdewey/pendulum-nvim
 
 go 1.22.3
 

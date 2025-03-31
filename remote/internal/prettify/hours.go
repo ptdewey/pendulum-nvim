@@ -2,11 +2,12 @@ package prettify
 
 import (
 	"fmt"
-	"pendulum-nvim/internal/data"
-	"pendulum-nvim/pkg/args"
 	"sort"
 	"time"
 	"unicode/utf8"
+
+	"github.com/ptdewey/pendulum-nvim/internal/data"
+	"github.com/ptdewey/pendulum-nvim/pkg/args"
 )
 
 type hourDuration struct {

@@ -2,9 +2,10 @@ package data
 
 import (
 	"log"
-	"pendulum-nvim/pkg/args"
 	"strconv"
 	"time"
+
+	"github.com/ptdewey/pendulum-nvim/pkg/args"
 )
 
 type PendulumHours struct {

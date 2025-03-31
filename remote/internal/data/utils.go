@@ -2,9 +2,10 @@ package data
 
 import (
 	"fmt"
-	"pendulum-nvim/pkg/args"
 	"regexp"
 	"time"
+
+	"github.com/ptdewey/pendulum-nvim/pkg/args"
 )
 
 // timeDiff calculates the time difference between the last two timestamps.

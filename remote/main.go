@@ -4,8 +4,9 @@ import (
 	"errors"
 	"log"
 	"os"
-	"pendulum-nvim/pkg"
-	"pendulum-nvim/pkg/args"
+
+	"github.com/ptdewey/pendulum-nvim/pkg"
+	"github.com/ptdewey/pendulum-nvim/pkg/args"
 
 	"github.com/neovim/go-client/nvim"
 )
