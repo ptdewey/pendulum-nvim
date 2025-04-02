@@ -133,15 +133,24 @@ func prettifyActiveHours(hours *data.PendulumHours, n int, timeFormat string, ti
 			}
 		}
 
+		var overallPct, recentPct float64
+		if _, exists := hourDurationsTotal[h24]; exists {
+			overallPct = float64(dur) / float64(hourDurationsTotal[h24]) * 100
+		}
+		if _, exists := weekHourDurationsTotal[h24]; exists {
+			recentPct = float64(weeklyDur) / float64(weekHourDurationsTotal[h24]) * 100
+		}
+
+		// FIX: whitespace formatting for non-numeric weekly percentages
 		out += fmt.Sprintf("%*d. %2d%s %-*s%-*v (%.2f%%)%-*s %-*v (%.2f%%)%-*s %-*d\n",
 			bulletWidth, i+1,
 			h, period,
 			3, "",
 			overallHoursWidth, dur,
-			float64(dur)/float64(hourDurationsTotal[h24])*100,
+			overallPct,
 			3, "",
 			recentHoursWidth, weeklyDur,
-			float64(weeklyDur)/float64(weekHourDurationsTotal[h24])*100,
+			recentPct,
 			6, "",
 			3, c,
 		)
