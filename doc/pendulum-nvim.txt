@@ -1,4 +1,4 @@
-*pendulum-nvim.txt*       For Neovim >= 0.10.0      Last change: 2025 April 02
+*pendulum-nvim.txt*       For Neovim >= 0.10.0       Last change: 2025 June 25
 
 ==============================================================================
 Table of Contents                            *pendulum-nvim-table-of-contents*
