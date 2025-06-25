@@ -30,7 +30,13 @@ local function table_to_csv(t)
         for _, field_key in ipairs(headers) do
             table.insert(temp, escape_csv_field(row[field_key]))
         end
-        table.insert(csv_data, table.concat(temp, ",") .. "\n")
+
+        -- Incomplete rows can sometimes occur when multiple Neovim sessions are open,
+        -- so validating the number of entries matches the number of headers prevents
+        -- incomplete insertions.
+        if #temp == #headers then
+            table.insert(csv_data, table.concat(temp, ",") .. "\n")
+        end
     end
 
     return table.concat(csv_data), headers

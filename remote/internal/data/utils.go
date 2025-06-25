@@ -81,6 +81,9 @@ func calcDurationWithinHour(curr string, prev string) (time.Duration, error) {
 
 func compileRegexPatterns(filters any) ([]*regexp.Regexp, error) {
 	var patterns []*regexp.Regexp
+	if _, ok := filters.([]any); !ok {
+		return nil, nil
+	}
 	for _, expr := range filters.([]any) {
 		r, err := regexp.Compile(expr.(string))
 		if err != nil {

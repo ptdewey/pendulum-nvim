@@ -38,8 +38,6 @@ func prettifyActiveHours(hours *data.PendulumHours, n int, timeFormat string, ti
 
 	layout := "2006-01-02 15:04:05"
 	for _, ts := range hours.ActiveTimestamps {
-		var t time.Time
-
 		t, err := time.Parse(layout, ts)
 		if err != nil {
 			fmt.Println("Failed to parse timestamp: ", ts)
