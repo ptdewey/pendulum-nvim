@@ -4,14 +4,23 @@ use std::path::Path;
 use std::process::Command;
 
 use anyhow::{Result, anyhow};
+use clap::Parser;
 use csv::{ReaderBuilder, WriterBuilder};
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tokio::sync::Mutex;
 use tower_lsp::jsonrpc::{Error, Result as LspResult};
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
+
+#[derive(Parser, Debug)]
+#[command(name = "pendulum-lsp")]
+#[command(about = "Pendulum time tracking LSP server")]
+struct Args {
+    /// Path to the CSV log file
+    #[arg(long, short)]
+    csv_path: String,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ActivityData {
@@ -26,14 +35,14 @@ struct ActivityData {
 
 struct PendulumLsp {
     client: Client,
-    csv_file_path: Mutex<Option<String>>,
+    csv_file_path: String,
 }
 
 impl PendulumLsp {
-    fn new(client: Client) -> Self {
+    fn new(client: Client, csv_path: String) -> Self {
         Self {
             client,
-            csv_file_path: Mutex::new(None),
+            csv_file_path: csv_path,
         }
     }
 
@@ -79,10 +88,7 @@ impl PendulumLsp {
     }
 
     async fn write_csv_data(&self, data: &ActivityData) -> Result<()> {
-        let csv_path = self.csv_file_path.lock().await;
-        let path = csv_path
-            .as_ref()
-            .ok_or_else(|| anyhow!("CSV file path not set"))?;
+        let path = &self.csv_file_path;
 
         // Create directory if it doesn't exist
         if let Some(parent) = Path::new(path).parent() {
@@ -122,50 +128,20 @@ impl PendulumLsp {
         writer.flush()?;
         Ok(())
     }
-
-    // async fn read_csv_data(&self) -> Result<Vec<ActivityData>> {
-    //     let csv_path = self.csv_file_path.lock().await;
-    //     let path = csv_path
-    //         .as_ref()
-    //         .ok_or_else(|| anyhow!("CSV file path not set"))?;
-    //
-    //     if !Path::new(path).exists() {
-    //         return Ok(Vec::new());
-    //     }
-    //
-    //     let file = File::open(path)?;
-    //     let mut reader = ReaderBuilder::new().from_reader(file);
-    //     let mut data = Vec::new();
-    //
-    //     for result in reader.deserialize() {
-    //         match result {
-    //             Ok(record) => {
-    //                 let activity: ActivityData = record;
-    //                 data.push(activity);
-    //             }
-    //             Err(e) => {
-    //                 warn!("Error reading CSV record: {}", e);
-    //             }
-    //         }
-    //     }
-    //
-    //     Ok(data)
-    // }
 }
 
 #[tower_lsp::async_trait]
 impl LanguageServer for PendulumLsp {
     async fn initialize(&self, _params: InitializeParams) -> LspResult<InitializeResult> {
-        info!("Pendulum LSP initializing...");
+        info!(
+            "Pendulum LSP initializing with CSV path: {}",
+            self.csv_file_path
+        );
 
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
                 execute_command_provider: Some(ExecuteCommandOptions {
-                    commands: vec![
-                        "pendulum.logActivity".to_string(),
-                        "pendulum.setCsvPath".to_string(),
-                        "pendulum.readCsv".to_string(),
-                    ],
+                    commands: vec!["pendulum.logActivity".to_string()],
                     ..Default::default()
                 }),
                 ..Default::default()
@@ -191,19 +167,6 @@ impl LanguageServer for PendulumLsp {
 
     async fn execute_command(&self, params: ExecuteCommandParams) -> LspResult<Option<Value>> {
         match params.command.as_str() {
-            "pendulum.setCsvPath" => {
-                if let Some(Value::String(path)) = params.arguments.first() {
-                    let mut csv_path = self.csv_file_path.lock().await;
-                    *csv_path = Some(path.clone());
-                    info!("CSV path set to: {path}");
-                    self.client
-                        .log_message(MessageType::INFO, format!("CSV path set to: {path}"))
-                        .await;
-                    Ok(Some(Value::Bool(true)))
-                } else {
-                    Err(Error::invalid_params("Missing or invalid CSV path"))
-                }
-            }
             "pendulum.logActivity" => {
                 if let Some(args) = params.arguments.first() {
                     match serde_json::from_value::<HashMap<String, Value>>(args.clone()) {
@@ -277,9 +240,12 @@ impl LanguageServer for PendulumLsp {
 async fn main() {
     env_logger::init();
 
+    let args = Args::parse();
+
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
 
-    let (service, socket) = LspService::new(PendulumLsp::new);
+    let (service, socket) =
+        LspService::build(|client| PendulumLsp::new(client, args.csv_path)).finish();
     Server::new(stdin, stdout, socket).serve(service).await;
 }

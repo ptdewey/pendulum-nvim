@@ -1,48 +1,15 @@
 local M = {}
 
 local last_active_time = os.time()
-local flag = true
+local active_flag = true
 local lsp_client = nil
-
-local csv_path_set = false
-local pending_queue = {}
 
 local function update_activity()
     last_active_time = os.time()
 end
 
-local function flush_pending()
-    if not lsp_client then
-        return
-    end
-
-    if #pending_queue > 0 then
-        for _, activity in ipairs(pending_queue) do
-            lsp_client.request("workspace/executeCommand", {
-                command = "pendulum.logActivity",
-                arguments = { activity },
-            }, function(err, _)
-                if err then
-                    vim.notify(
-                        "Failed to log queued activity: "
-                            .. tostring(err.message or err),
-                        vim.log.levels.ERROR
-                    )
-                end
-            end, 0)
-        end
-        pending_queue = {}
-    end
-end
-
 local function send_to_lsp(activity_data)
     if not lsp_client or lsp_client.is_stopped() then
-        -- vim.notify("Pendulum LSP client not initialized", vim.log.levels.WARN)
-        return
-    end
-
-    if not csv_path_set then
-        table.insert(pending_queue, activity_data)
         return
     end
 
@@ -64,35 +31,43 @@ local function init_lsp_client(opts)
         return lsp_client
     end
 
+    -- Check if the binary exists and is executable
+    -- TODO: remove this option and replace with plugin path
+    local binary_path = opts.lsp_binary
+    local stat = vim.loop.fs_stat(binary_path)
+
+    if not stat then
+        vim.notify(
+            "Pendulum LSP binary not found: " .. binary_path,
+            vim.log.levels.ERROR
+        )
+        return nil
+    end
+
+    if not vim.fn.executable(binary_path) then
+        vim.notify(
+            "Pendulum LSP binary is not executable: " .. binary_path,
+            vim.log.levels.ERROR
+        )
+        return nil
+    end
+
     local client_id = vim.lsp.start({
         name = "pendulum-lsp",
-        cmd = { opts.lsp_binary },
-        root_dir = vim.fn.getcwd(),
+        cmd = { binary_path, "--csv-path", opts.log_file },
+        root_dir = vim.loop.cwd(),
         filetypes = {},
         on_attach = function(client, bufnr)
-            client:request("workspace/executeCommand", {
-                command = "pendulum.setCsvPath",
-                arguments = { opts.log_file },
-            }, function(err, _)
-                if err then
-                    vim.notify(
-                        "Failed to set CSV path: "
-                            .. tostring(err.message or err),
-                        vim.log.levels.ERROR
-                    )
-                else
-                    csv_path_set = true
-                    flush_pending()
-                end
-            end, bufnr)
+            vim.lsp.log.debug("Pendulum LSP attached")
         end,
-        on_init = function(_)
-            flush_pending()
-        end,
-        on_exit = function(code, _, _)
+        on_exit = function(code, signal, _)
             lsp_client = nil
             vim.notify(
-                "Pendulum LSP server exited with code: " .. tostring(code),
+                string.format(
+                    "Pendulum LSP server exited with code: %s, signal: %s",
+                    tostring(code),
+                    tostring(signal)
+                ),
                 vim.log.levels.WARN
             )
         end,
@@ -100,9 +75,13 @@ local function init_lsp_client(opts)
 
     if client_id then
         lsp_client = vim.lsp.get_client_by_id(client_id)
+        vim.lsp.log.debug(
+            "Pendulum LSP client started with ID: " .. client_id,
+            vim.log.levels.INFO
+        )
     else
         vim.notify(
-            "Failed to start Pendulum LSP server: " .. opts.lsp_binary,
+            "Failed to start Pendulum LSP server: " .. binary_path,
             vim.log.levels.ERROR
         )
     end
@@ -131,17 +110,29 @@ end
 
 local function check_active_status(opts)
     local is_active = os.time() - last_active_time < opts.timeout_len
-    if not is_active and flag then
-        flag = false
+    if not is_active and active_flag then
+        active_flag = false
         log_activity(true, last_active_time)
-    elseif is_active and not flag then
-        flag = true
+    elseif is_active and not active_flag then
+        active_flag = true
     end
     log_activity(is_active)
 end
 
 function M.setup(opts)
+    opts = opts or {}
     opts.lsp_binary = opts.lsp_binary or "pendulum-lsp"
+    opts.timeout_len = opts.timeout_len or 5
+    opts.timer_len = opts.timer_len or 1
+
+    if not opts.log_file then
+        vim.notify(
+            "Pendulum: log_file is required in setup options",
+            vim.log.levels.ERROR
+        )
+        return
+    end
+
     update_activity()
 
     vim.api.nvim_create_augroup("Pendulum", { clear = true })
@@ -151,15 +142,30 @@ function M.setup(opts)
         callback = update_activity,
     })
 
-    vim.api.nvim_create_autocmd({ "BufEnter", "VimLeave" }, {
+    vim.api.nvim_create_autocmd({ "BufEnter" }, {
         group = "Pendulum",
         callback = function()
             log_activity(true)
         end,
     })
 
+    vim.api.nvim_create_autocmd({ "VimLeave" }, {
+        group = "Pendulum",
+        callback = function()
+            if lsp_client and not lsp_client.is_stopped() then
+                log_activity(true)
+            end
+        end,
+    })
+
+    -- Initialize LSP client immediately (deferred to next tick)
+    -- FIX: why does this error out if not deferred?
     vim.defer_fn(function()
         init_lsp_client(opts)
+    end, 0)
+
+    -- Start the activity checking timer
+    vim.defer_fn(function()
         vim.fn.timer_start(opts.timer_len * 1000, function()
             vim.schedule(function()
                 check_active_status(opts)
