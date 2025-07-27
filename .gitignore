@@ -70,3 +70,8 @@ luac.out
 ## Extras
 remote/pendulum-nvim
 .luarc.json
+
+
+# Added by cargo
+
+/target

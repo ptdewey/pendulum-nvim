@@ -1,127 +1,171 @@
 local M = {}
 
-local csv = require("pendulum.csv")
-
----initialize last active time
 local last_active_time = os.time()
-
 local flag = true
+local lsp_client = nil
 
----update last active time
+local csv_path_set = false
+local pending_queue = {}
+
 local function update_activity()
     last_active_time = os.time()
 end
 
----get the name of the git project
----@return string
-local function git_project()
-    -- TODO: possibly change cwd to file path (to capture its git project while in a different working directory)
-    local project_name = vim.system(
-        { "git", "config", "--local", "remote.origin.url" },
-        { text = true, cwd = vim.loop.cwd() }
-    )
-        :wait().stdout
-
-    if project_name then
-        project_name = project_name:gsub("%s+$", ""):match(".*/([^.]+)%.git$")
+local function flush_pending()
+    if not lsp_client then
+        return
     end
 
-    return project_name or "unknown_project"
+    if #pending_queue > 0 then
+        for _, activity in ipairs(pending_queue) do
+            lsp_client.request("workspace/executeCommand", {
+                command = "pendulum.logActivity",
+                arguments = { activity },
+            }, function(err, _)
+                if err then
+                    vim.notify(
+                        "Failed to log queued activity: "
+                            .. tostring(err.message or err),
+                        vim.log.levels.ERROR
+                    )
+                end
+            end, 0)
+        end
+        pending_queue = {}
+    end
 end
 
----get name of current git branch
----@return string
-local function git_branch()
-    -- TODO: possibly change cwd to file path (to capture its git project while in a different working directory)
-    local branch_name = vim.system(
-        { "git", "branch", "--show-current" },
-        { text = true, cwd = vim.loop.cwd() }
-    )
-        :wait().stdout
-
-    if not branch_name or branch_name == "" or branch_name:match("^fatal:") then
-        return "unknown_branch"
+local function send_to_lsp(activity_data)
+    if not lsp_client or lsp_client.is_stopped() then
+        -- vim.notify("Pendulum LSP client not initialized", vim.log.levels.WARN)
+        return
     end
 
-    return branch_name:gsub("%s+$", "") or "unknown_branch"
+    if not csv_path_set then
+        table.insert(pending_queue, activity_data)
+        return
+    end
+
+    lsp_client.request("workspace/executeCommand", {
+        command = "pendulum.logActivity",
+        arguments = { activity_data },
+    }, function(err, _)
+        if err then
+            vim.notify(
+                "Failed to log activity: " .. tostring(err.message or err),
+                vim.log.levels.ERROR
+            )
+        end
+    end, 0)
 end
 
----get table of tracked metrics
----@param is_active boolean
----@param active_time integer?
----@return table
-local function log_activity(is_active, opts, active_time)
-    local _ = active_time
-    local ft = vim.bo.filetype
-    if ft == "" then
-        ft = "unknown_filetype"
+local function init_lsp_client(opts)
+    if lsp_client then
+        return lsp_client
     end
+
+    local client_id = vim.lsp.start({
+        name = "pendulum-lsp",
+        cmd = { opts.lsp_binary },
+        root_dir = vim.fn.getcwd(),
+        filetypes = {},
+        on_attach = function(client, bufnr)
+            client:request("workspace/executeCommand", {
+                command = "pendulum.setCsvPath",
+                arguments = { opts.log_file },
+            }, function(err, _)
+                if err then
+                    vim.notify(
+                        "Failed to set CSV path: "
+                            .. tostring(err.message or err),
+                        vim.log.levels.ERROR
+                    )
+                else
+                    csv_path_set = true
+                    flush_pending()
+                end
+            end, bufnr)
+        end,
+        on_init = function(_)
+            flush_pending()
+        end,
+        on_exit = function(code, _, _)
+            lsp_client = nil
+            vim.notify(
+                "Pendulum LSP server exited with code: " .. tostring(code),
+                vim.log.levels.WARN
+            )
+        end,
+    })
+
+    if client_id then
+        lsp_client = vim.lsp.get_client_by_id(client_id)
+    else
+        vim.notify(
+            "Failed to start Pendulum LSP server: " .. opts.lsp_binary,
+            vim.log.levels.ERROR
+        )
+    end
+
+    return lsp_client
+end
+
+local function log_activity(is_active, active_time)
+    local time = active_time or os.time()
+    local ft = vim.bo.filetype ~= "" and vim.bo.filetype or "unknown_filetype"
+
     local data = {
-        -- time = vim.fn.strftime("%Y-%m-%d %H:%M:%S"), -- Use local time zone instead
-        time = os.date("!%Y-%m-%d %H:%M:%S"),
+        time = os.date("!%Y-%m-%d %H:%M:%S", time),
         active = tostring(is_active),
-        -- file = vim.fn.expand("%:t+"), -- only file name
-        file = vim.fn.expand("%:p"), -- file name with path
-        -- TODO: file path - filename -> handoff to git to get file names
-        -- - change cwd to file path without filename
+        file = vim.fn.expand("%:p"),
         filetype = ft,
         cwd = vim.loop.cwd(),
-        project = git_project(),
-        branch = git_branch(),
     }
+
     if data.file ~= "" then
-        csv.write_table_to_csv(opts.log_file, { data }, true)
+        send_to_lsp(data)
     end
 
     return data
 end
 
----Check if the user is currently active
----@param opts table
 local function check_active_status(opts)
     local is_active = os.time() - last_active_time < opts.timeout_len
-
-    -- for first non-active entry, log last active time
     if not is_active and flag then
         flag = false
-        log_activity(true, opts, last_active_time)
+        log_activity(true, last_active_time)
     elseif is_active and not flag then
         flag = true
     end
-
-    log_activity(is_active, opts)
+    log_activity(is_active)
 end
 
----Setup periodic activity checks
----@param opts table
 function M.setup(opts)
+    opts.lsp_binary = opts.lsp_binary or "pendulum-lsp"
     update_activity()
 
-    -- create autocommand group
     vim.api.nvim_create_augroup("Pendulum", { clear = true })
 
-    -- define autocmd to update last active time
     vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" }, {
         group = "Pendulum",
-        callback = function()
-            update_activity()
-        end,
+        callback = update_activity,
     })
 
-    -- define autocmd for logging events
     vim.api.nvim_create_autocmd({ "BufEnter", "VimLeave" }, {
         group = "Pendulum",
         callback = function()
-            log_activity(true, opts)
+            log_activity(true)
         end,
     })
 
-    -- logging timer
-    vim.fn.timer_start(opts.timer_len * 1000, function()
-        vim.schedule(function()
-            check_active_status(opts)
-        end)
-    end, { ["repeat"] = -1 })
+    vim.defer_fn(function()
+        init_lsp_client(opts)
+        vim.fn.timer_start(opts.timer_len * 1000, function()
+            vim.schedule(function()
+                check_active_status(opts)
+            end)
+        end, { ["repeat"] = -1 })
+    end, 100)
 end
 
 return M

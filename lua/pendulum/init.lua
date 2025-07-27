@@ -21,6 +21,7 @@ local default_opts = {
         project = {},
     },
     report_section_excludes = {},
+    lsp_binary = nil,
 }
 
 ---set up plugin autocommands with user options
