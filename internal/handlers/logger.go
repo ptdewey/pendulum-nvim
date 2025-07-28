@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 
@@ -10,52 +11,48 @@ import (
 // TODO:
 
 type activityData struct {
-	active   bool
-	branch   string
-	cwd      string
-	file     string
-	filetype string
-	project  string
-	time     string
+	Active   bool   `json:"active"`
+	Branch   string `json:"branch"`
+	Cwd      string `json:"cwd"`
+	File     string `json:"file"`
+	Filetype string `json:"filetype"`
+	Project  string `json:"project"`
+	Time     string `json:"time"`
 }
 
 // TODO: output should just be error
 func LogActivity(ctx *glsp.Context, args []any) (bool, error) {
-	// TODO: log with ctx? (allow different log levels)
 	log.Printf("executing command 'pendulum.logActivity' with args %v (%T)", args, args)
 
-	m, ok := args[0].(map[string]any)
-	if !ok {
-		// TODO: log error?
-		return false, fmt.Errorf("invalid args")
+	if len(args) == 0 {
+		return false, fmt.Errorf("no arguments provided")
 	}
 
-	ad := activityData{}
+	// Convert to JSON and back to populate struct fields automatically
+	jsonBytes, err := json.Marshal(args[0])
+	if err != nil {
+		return false, fmt.Errorf("invalid args: %w", err)
+	}
 
-	if active, exists := m["active"].(bool); exists {
-		ad.active = active
+	var ad activityData
+	if err := json.Unmarshal(jsonBytes, &ad); err != nil {
+		return false, fmt.Errorf("failed to parse activity data: %w", err)
 	}
-	if branch, exists := m["branch"].(string); exists {
-		ad.branch = branch
-	}
-	if cwd, err := m["cwd"].(string); err {
-		ad.cwd = cwd
-	}
-	if file, exists := m["file"].(string); exists {
-		ad.file = file
-	}
-	if filetype, exists := m["filetype"].(string); exists {
-		ad.filetype = filetype
-	}
-	if project, exists := m["project"].(string); exists {
-		ad.project = project
-	}
-	if time, exists := m["time"].(string); exists {
-		ad.time = time
-	}
+
+	row := ad.toCSV()
 
 	// TODO: write to csv
-	// - create if not exist
-
 	return false, nil
+}
+
+func (ad *activityData) toCSV() string {
+	return fmt.Sprintf("%t,%s,%s,%s,%s,%s,%s",
+		ad.Active,
+		ad.Branch,
+		ad.Cwd,
+		ad.File,
+		ad.Filetype,
+		ad.Project,
+		ad.Time,
+	)
 }

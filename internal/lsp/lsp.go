@@ -56,11 +56,10 @@ func WorkspaceExecuteCommand(ctx *glsp.Context, params *protocol.ExecuteCommandP
 	case cmdGenerateMetricsReport:
 		return handlers.GenerateMetricsReport(ctx, params.Arguments)
 	case cmdGenerateHourlyReport:
+		return handlers.GenerateHourlyReport(ctx, params.Arguments)
 	default:
 		return nil, fmt.Errorf("unknown command: %s", params.Command)
 	}
-
-	return nil, fmt.Errorf("not yet implemented")
 }
 
 // These may of potential use (removing the need for some autocommands)

@@ -94,7 +94,7 @@ local function log_activity(is_active, active_time)
 
     local data = {
         time = os.date("!%Y-%m-%d %H:%M:%S", time),
-        active = tostring(is_active),
+        active = is_active,
         file = vim.fn.expand("%:p"),
         filetype = ft,
         cwd = vim.loop.cwd(),
@@ -178,3 +178,4 @@ function M.setup(opts)
 end
 
 return M
+
