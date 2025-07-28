@@ -69,6 +69,7 @@ luac.out
 
 ## Extras
 remote/pendulum-nvim
+pendulum-server
 .luarc.json
 
 

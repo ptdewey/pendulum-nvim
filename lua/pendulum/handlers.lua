@@ -32,7 +32,6 @@ local function init_lsp_client(opts)
     end
 
     -- Check if the binary exists and is executable
-    -- TODO: remove this option and replace with plugin path
     local binary_path = opts.lsp_binary
     local stat = vim.loop.fs_stat(binary_path)
 
@@ -119,6 +118,11 @@ local function check_active_status(opts)
     log_activity(is_active)
 end
 
+-- Expose the LSP client to other modules
+function M.get_lsp_client()
+    return lsp_client
+end
+
 function M.setup(opts)
     opts = opts or {}
     opts.lsp_binary = opts.lsp_binary or "pendulum-lsp"
@@ -159,7 +163,6 @@ function M.setup(opts)
     })
 
     -- Initialize LSP client immediately (deferred to next tick)
-    -- FIX: why does this error out if not deferred?
     vim.defer_fn(function()
         init_lsp_client(opts)
     end, 0)
