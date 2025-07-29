@@ -1,5 +1,7 @@
 local M = {}
 
+-- TODO: strip most of this code out into the LSP
+
 local last_active_time = os.time()
 local active_flag = true
 local lsp_client = nil
@@ -178,4 +180,3 @@ function M.setup(opts)
 end
 
 return M
-

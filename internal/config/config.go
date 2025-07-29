@@ -1,17 +1,29 @@
 package config
 
+import (
+	"fmt"
+	"os"
+)
+
 var cfg *config
 
 type config struct {
-	LogFile string
-	Debug   bool
+	LogFile    string
+	LspLogFile string
+	Debug      bool
 }
 
 type option func(c *config)
 
-func WithLogFile(path string) option {
+func WithActivityFile(path string) option {
 	return func(c *config) {
 		c.LogFile = path
+	}
+}
+
+func WithLogFile(path string) option {
+	return func(c *config) {
+		c.LspLogFile = path
 	}
 }
 
@@ -21,11 +33,27 @@ func WithDebug(debug bool) option {
 	}
 }
 
-func Setup(opts ...option) {
+func Setup(opts ...option) error {
 	cfg = new(config)
 	for _, o := range opts {
 		o(cfg)
 	}
+
+	if cfg.LogFile == "" {
+		return fmt.Errorf("pendulum activity log file option not set")
+	}
+
+	if _, err := os.Stat(cfg.LogFile); err != nil && os.IsNotExist(err) {
+		f, err := os.Create(cfg.LogFile)
+		if err != nil {
+			return fmt.Errorf("pendulum activity log does not exist and could not be created")
+		}
+		if _, err := f.Write([]byte("active,branch,cwd,file,filetype,project,time\n")); err != nil {
+			return fmt.Errorf("failed to write pendulum header")
+		}
+	}
+
+	return nil
 }
 
 func Config() *config {

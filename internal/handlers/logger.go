@@ -4,11 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
+	"os/exec"
+	"regexp"
+	"strings"
 
+	"github.com/ptdewey/pendulum-server/internal/config"
 	"github.com/tliron/glsp"
 )
-
-// TODO:
 
 type activityData struct {
 	Active   bool   `json:"active"`
@@ -39,14 +42,62 @@ func LogActivity(ctx *glsp.Context, args []any) (bool, error) {
 		return false, fmt.Errorf("failed to parse activity data: %w", err)
 	}
 
+	ad.Project = getGitProject(ad.Cwd)
+	ad.Branch = getGitBranch(ad.Cwd)
+
 	row := ad.toCSV()
 
-	// TODO: write to csv
-	return false, nil
+	f, err := os.OpenFile(config.Config().LogFile, os.O_WRONLY|os.O_APPEND, 0664)
+	if err != nil {
+		return false, err
+	}
+
+	if _, err := f.Write([]byte(row)); err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+func getGitBranch(cwd string) string {
+	cmd := exec.Command("git", "branch", "--show-current")
+	cmd.Dir = cwd
+
+	output, err := cmd.Output()
+	if err != nil {
+		return "unknown_branch"
+	}
+
+	branch := strings.TrimSpace(string(output))
+	if branch == "" || strings.HasPrefix(branch, "fatal:") {
+		return "unknown_branch"
+	}
+
+	return branch
+}
+
+func getGitProject(cwd string) string {
+	cmd := exec.Command("git", "config", "--local", "remote.origin.url")
+	cmd.Dir = cwd
+
+	output, err := cmd.Output()
+	if err != nil {
+		return "unknown_project"
+	}
+
+	url := strings.TrimSpace(string(output))
+
+	re := regexp.MustCompile(`.*/([^.]+)\.git$`)
+	matches := re.FindStringSubmatch(url)
+	if len(matches) >= 2 {
+		return matches[1]
+	}
+
+	return "unknown_project"
 }
 
 func (ad *activityData) toCSV() string {
-	return fmt.Sprintf("%t,%s,%s,%s,%s,%s,%s",
+	return fmt.Sprintf("%t,%s,%s,%s,%s,%s,%s\n",
 		ad.Active,
 		ad.Branch,
 		ad.Cwd,

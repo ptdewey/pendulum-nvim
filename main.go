@@ -13,13 +13,17 @@ import (
 var name = "pendulum-server"
 
 func main() {
-	// TODO: flags for on startup to set config vars
-	config.Setup(
-		config.WithLogFile("pendulum-log.csv"),
-		config.WithDebug(true),
-	)
+	commonlog.Configure(1, &config.Config().LspLogFile)
 
-	commonlog.Configure(1, &config.Config().LogFile)
+	// TODO: flags for on startup to set config vars
+
+	if err := config.Setup(
+		config.WithActivityFile("pendulum-log.csv"),
+		config.WithDebug(true),
+	); err != nil {
+		log.Println(err)
+		return
+	}
 
 	h := protocol.Handler{
 		Initialize:              lsp.Initialize,
@@ -27,7 +31,7 @@ func main() {
 		WorkspaceExecuteCommand: lsp.WorkspaceExecuteCommand,
 	}
 
-	s := server.NewServer(&h, "pendulum-server", config.Config().Debug)
+	s := server.NewServer(&h, name, config.Config().Debug)
 
 	if err := s.RunStdio(); err != nil {
 		log.Println(err)
