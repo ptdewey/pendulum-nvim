@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/ptdewey/pendulum-server/internal/config"
 	"github.com/ptdewey/pendulum-server/internal/handlers"
 	"github.com/tliron/glsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -44,6 +45,13 @@ func Initialized(ctx *glsp.Context, params *protocol.InitializedParams) error {
 		Type:    protocol.MessageTypeInfo,
 		Message: "pendulum-server is ready",
 	})
+
+	// Auto-start activity manager with CLI config
+	cfg := config.Config()
+	if cfg != nil {
+		handlers.InitializeActivityManager(ctx, cfg.TimeoutLen, cfg.TimerLen)
+		log.Printf("Activity manager auto-started with timeout: %v, interval: %v", cfg.TimeoutLen, cfg.TimerLen)
+	}
 
 	return nil
 }

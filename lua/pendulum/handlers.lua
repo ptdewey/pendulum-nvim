@@ -49,15 +49,17 @@ local function init_lsp_client(opts)
 
     local client_id = vim.lsp.start({
         name = "pendulum-lsp",
-        cmd = { binary_path, "--csv-path", opts.log_file },
+        cmd = { 
+            binary_path, 
+            "--csv-path", opts.log_file,
+            "--activity-timeout", tostring(opts.timeout_len),
+            "--check-interval", tostring(opts.timer_len)
+        },
         root_dir = vim.loop.cwd(),
         filetypes = {},
         on_attach = function(client, bufnr)
             vim.lsp.log.debug("Pendulum LSP attached")
-            send_to_lsp("pendulum.startSession", {
-                timeout_len = opts.timeout_len,
-                timer_len = opts.timer_len,
-            })
+            -- Activity manager is auto-started by LSP with CLI config
         end,
         on_exit = function(code, signal, _)
             lsp_client = nil

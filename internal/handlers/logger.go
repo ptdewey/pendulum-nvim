@@ -145,24 +145,32 @@ func ActivityPing(ctx *glsp.Context, args []any) (bool, error) {
 func StartSession(ctx *glsp.Context, args []any) (bool, error) {
 	log.Printf("executing command 'pendulum.startSession' with args %v", args)
 
-	// Default values
-	timeoutLen := 5 * time.Second
-	timerLen := 1 * time.Second
+	// Start with CLI config defaults
+	cfg := config.Config()
+	timeoutLen := cfg.TimeoutLen
+	timerLen := cfg.TimerLen
 
-	// Parse config if provided
+	// Allow Lua to override with session-specific config
 	if len(args) > 0 {
 		jsonBytes, err := json.Marshal(args[0])
 		if err == nil {
-			var cfg sessionConfig
-			if json.Unmarshal(jsonBytes, &cfg) == nil {
-				if cfg.TimeoutLen > 0 {
-					timeoutLen = time.Duration(cfg.TimeoutLen) * time.Second
+			var sessionCfg sessionConfig
+			if json.Unmarshal(jsonBytes, &sessionCfg) == nil {
+				if sessionCfg.TimeoutLen > 0 {
+					timeoutLen = time.Duration(sessionCfg.TimeoutLen) * time.Second
+					log.Printf("Using Lua-provided timeout: %v", timeoutLen)
 				}
-				if cfg.TimerLen > 0 {
-					timerLen = time.Duration(cfg.TimerLen) * time.Second
+				if sessionCfg.TimerLen > 0 {
+					timerLen = time.Duration(sessionCfg.TimerLen) * time.Second
+					log.Printf("Using Lua-provided timer: %v", timerLen)
 				}
 			}
 		}
+	}
+
+	// Stop existing manager if any
+	if am := GetActivityManager(); am != nil {
+		am.Stop()
 	}
 
 	InitializeActivityManager(ctx, timeoutLen, timerLen)
