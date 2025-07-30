@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/ptdewey/pendulum-server/internal/config"
 	"github.com/tliron/glsp"
@@ -42,18 +43,34 @@ func LogActivity(ctx *glsp.Context, args []any) (bool, error) {
 		return false, fmt.Errorf("failed to parse activity data: %w", err)
 	}
 
-	ad.Project = getGitProject(ad.Cwd)
-	ad.Branch = getGitBranch(ad.Cwd)
+	am := GetActivityManager()
+	if am != nil {
+		// Update activity manager with current data
+		am.SetCurrentData(&ad)
+		am.UpdateActivity()
 
-	row := ad.toCSV()
+		// Immediately log this activity data
+		ad.Project = getGitProject(ad.Cwd)
+		ad.Branch = getGitBranch(ad.Cwd)
+		if err := writeActivityToCSV(&ad); err != nil {
+			log.Printf("Failed to write activity data: %v", err)
+		}
+	} else {
+		// Fallback to direct logging if manager not available
+		ad.Project = getGitProject(ad.Cwd)
+		ad.Branch = getGitBranch(ad.Cwd)
 
-	f, err := os.OpenFile(config.Config().LogFile, os.O_WRONLY|os.O_APPEND, 0664)
-	if err != nil {
-		return false, err
-	}
+		row := ad.toCSV()
 
-	if _, err := f.Write([]byte(row)); err != nil {
-		return false, err
+		f, err := os.OpenFile(config.Config().LogFile, os.O_WRONLY|os.O_APPEND, 0664)
+		if err != nil {
+			return false, err
+		}
+		defer f.Close()
+
+		if _, err := f.Write([]byte(row)); err != nil {
+			return false, err
+		}
 	}
 
 	return true, nil
@@ -106,4 +123,61 @@ func (ad *activityData) toCSV() string {
 		ad.Project,
 		ad.Time,
 	)
+}
+
+type sessionConfig struct {
+	TimeoutLen int `json:"timeout_len"`
+	TimerLen   int `json:"timer_len"`
+}
+
+func ActivityPing(ctx *glsp.Context, args []any) (bool, error) {
+	log.Printf("executing command 'pendulum.activityPing'")
+
+	am := GetActivityManager()
+	if am == nil {
+		return false, fmt.Errorf("activity manager not initialized")
+	}
+
+	am.UpdateActivity()
+	return true, nil
+}
+
+func StartSession(ctx *glsp.Context, args []any) (bool, error) {
+	log.Printf("executing command 'pendulum.startSession' with args %v", args)
+
+	// Default values
+	timeoutLen := 5 * time.Second
+	timerLen := 1 * time.Second
+
+	// Parse config if provided
+	if len(args) > 0 {
+		jsonBytes, err := json.Marshal(args[0])
+		if err == nil {
+			var cfg sessionConfig
+			if json.Unmarshal(jsonBytes, &cfg) == nil {
+				if cfg.TimeoutLen > 0 {
+					timeoutLen = time.Duration(cfg.TimeoutLen) * time.Second
+				}
+				if cfg.TimerLen > 0 {
+					timerLen = time.Duration(cfg.TimerLen) * time.Second
+				}
+			}
+		}
+	}
+
+	InitializeActivityManager(ctx, timeoutLen, timerLen)
+	log.Printf("Activity session started with timeout: %v, timer: %v", timeoutLen, timerLen)
+	return true, nil
+}
+
+func EndSession(ctx *glsp.Context, args []any) (bool, error) {
+	log.Printf("executing command 'pendulum.endSession'")
+
+	am := GetActivityManager()
+	if am != nil {
+		am.Stop()
+	}
+
+	log.Println("Activity session ended")
+	return true, nil
 }

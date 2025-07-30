@@ -11,6 +11,9 @@ import (
 
 const (
 	cmdLogActivity           string = "pendulum.logActivity"
+	cmdActivityPing          string = "pendulum.activityPing"
+	cmdStartSession          string = "pendulum.startSession"
+	cmdEndSession            string = "pendulum.endSession"
 	cmdGenerateMetricsReport string = "pendulum.generateMetricsReport"
 	cmdGenerateHourlyReport  string = "pendulum.generateHourlyReport"
 )
@@ -19,7 +22,8 @@ func Initialize(ctx *glsp.Context, params *protocol.InitializeParams) (any, erro
 	capabilities := protocol.ServerCapabilities{
 		ExecuteCommandProvider: &protocol.ExecuteCommandOptions{
 			Commands: []string{
-				cmdLogActivity, cmdGenerateMetricsReport, cmdGenerateHourlyReport,
+				cmdLogActivity, cmdActivityPing, cmdStartSession, cmdEndSession,
+				cmdGenerateMetricsReport, cmdGenerateHourlyReport,
 			},
 		},
 	}
@@ -46,6 +50,12 @@ func Initialized(ctx *glsp.Context, params *protocol.InitializedParams) error {
 
 func Shutdown(ctx *glsp.Context) error {
 	log.Println("pendulum-server shutting down")
+
+	// Clean up activity manager
+	if am := handlers.GetActivityManager(); am != nil {
+		am.Stop()
+	}
+
 	return nil
 }
 
@@ -53,6 +63,12 @@ func WorkspaceExecuteCommand(ctx *glsp.Context, params *protocol.ExecuteCommandP
 	switch params.Command {
 	case cmdLogActivity:
 		return handlers.LogActivity(ctx, params.Arguments)
+	case cmdActivityPing:
+		return handlers.ActivityPing(ctx, params.Arguments)
+	case cmdStartSession:
+		return handlers.StartSession(ctx, params.Arguments)
+	case cmdEndSession:
+		return handlers.EndSession(ctx, params.Arguments)
 	case cmdGenerateMetricsReport:
 		return handlers.GenerateMetricsReport(ctx, params.Arguments)
 	case cmdGenerateHourlyReport:

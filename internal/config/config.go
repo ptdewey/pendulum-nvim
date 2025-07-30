@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 var cfg *config
@@ -11,6 +12,8 @@ type config struct {
 	LogFile    string
 	LspLogFile string
 	Debug      bool
+	TimeoutLen time.Duration
+	TimerLen   time.Duration
 }
 
 type option func(c *config)
@@ -33,8 +36,25 @@ func WithDebug(debug bool) option {
 	}
 }
 
+func WithTimeoutLen(timeout time.Duration) option {
+	return func(c *config) {
+		c.TimeoutLen = timeout
+	}
+}
+
+func WithTimerLen(timer time.Duration) option {
+	return func(c *config) {
+		c.TimerLen = timer
+	}
+}
+
 func Setup(opts ...option) error {
 	cfg = new(config)
+
+	// Set defaults
+	cfg.TimeoutLen = 5 * time.Second
+	cfg.TimerLen = 1 * time.Second
+
 	for _, o := range opts {
 		o(cfg)
 	}
