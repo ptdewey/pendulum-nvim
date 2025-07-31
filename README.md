@@ -181,7 +181,7 @@ The metrics report contents are customizable and section items or entire section
 These are some potential future ideas that would make for welcome contributions for anyone interested.
 
 - Logging to SQLite database (optionally)
-- Telescope integration
+- Fuzzy finder integration
 - Get stats for specified project, filetype, etc. (Could work well with Telescope)
 - Nicer looking popup with custom highlight groups
 - Alternative version of popup that uses a terminal buffer and [bubbletea](https://github.com/charmbracelet/bubbletea) (using the table component)

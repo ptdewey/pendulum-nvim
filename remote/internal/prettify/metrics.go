@@ -27,10 +27,15 @@ func PrettifyMetrics(metrics []data.PendulumMetric) []string {
 	// - Do this in a utility function to use with the active time display as well
 
 	// iterate over each metric
-	for _, metric := range metrics {
+	for i, metric := range metrics {
 		// TODO: redefine order? (might require hardcoding)
 		if metric.Name != "" && len(metric.Value) != 0 {
 			lines = append(lines, prettifyMetric(metric, args.PendulumArgs().NMetrics))
+
+			// Add empty line between metrics (but not after the last one)
+			if i < len(metrics)-1 {
+				lines = append(lines, "")
+			}
 		}
 	}
 

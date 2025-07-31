@@ -2,7 +2,10 @@ module github.com/ptdewey/pendulum-server
 
 go 1.24.4
 
-require github.com/tliron/glsp v0.2.2
+require (
+	github.com/tliron/commonlog v0.2.8
+	github.com/tliron/glsp v0.2.2
+)
 
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
@@ -17,7 +20,6 @@ require (
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/sasha-s/go-deadlock v0.3.1 // indirect
 	github.com/sourcegraph/jsonrpc2 v0.2.0 // indirect
-	github.com/tliron/commonlog v0.2.8 // indirect
 	github.com/tliron/kutil v0.3.11 // indirect
 	golang.org/x/crypto v0.15.0 // indirect
 	golang.org/x/net v0.17.0 // indirect

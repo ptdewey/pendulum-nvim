@@ -10,28 +10,11 @@ local function create_buffer(content, filetype)
     -- Set buffer options
     vim.api.nvim_buf_set_option(buf, "filetype", filetype or "markdown")
 
-    -- Process content based on type
+    -- Process content - LSP always returns a string
     local lines = {}
-
-    if type(content) == "table" then
-        -- If content is an array
-        for _, section in ipairs(content) do
-            if type(section) == "string" then
-                -- If it's a string, split it on newlines and add each line
-                for line in section:gmatch("[^\r\n]+") do
-                    table.insert(lines, line)
-                end
-            elseif type(section) == "table" then
-                -- If it's an array of strings
-                for _, line in ipairs(section) do
-                    if type(line) == "string" then
-                        table.insert(lines, line)
-                    end
-                end
-            end
-        end
-    elseif type(content) == "string" then
-        -- For a single string
+    
+    if type(content) == "string" then
+        -- Split string on newlines and add each line
         for line in content:gmatch("[^\r\n]+") do
             table.insert(lines, line)
         end
@@ -113,7 +96,7 @@ local function setup_pendulum_commands(lsp_client)
             return
         end
 
-        options.time_range = args.args or "all"
+        options.time_range = (args.args and args.args ~= "") or "all"
         options.view = "metrics"
 
         -- Send request to LSP for metrics report
