@@ -28,20 +28,19 @@ local function init_lsp_client(opts)
         return lsp_client
     end
 
-    local binary_path = opts.lsp_binary
-    local stat = vim.loop.fs_stat(binary_path)
+    local stat = vim.loop.fs_stat(opts.lsp_binary)
 
     if not stat then
         vim.notify(
-            "Pendulum LSP binary not found: " .. binary_path,
+            "Pendulum LSP binary not found: " .. opts.lsp_binary,
             vim.log.levels.ERROR
         )
         return nil
     end
 
-    if not vim.fn.executable(binary_path) then
+    if not vim.fn.executable(opts.lsp_binary) then
         vim.notify(
-            "Pendulum LSP binary is not executable: " .. binary_path,
+            "Pendulum LSP binary is not executable: " .. opts.lsp_binary,
             vim.log.levels.ERROR
         )
         return nil
@@ -49,17 +48,19 @@ local function init_lsp_client(opts)
 
     local client_id = vim.lsp.start({
         name = "pendulum-lsp",
-        cmd = { 
-            binary_path, 
-            "--csv-path", opts.log_file,
-            "--activity-timeout", tostring(opts.timeout_len),
-            "--check-interval", tostring(opts.timer_len)
+        cmd = {
+            opts.binary_path,
+            "--csv-path",
+            opts.log_file,
+            "--activity-timeout",
+            tostring(opts.timeout_len),
+            "--check-interval",
+            tostring(opts.timer_len),
         },
         root_dir = vim.loop.cwd(),
         filetypes = {},
         on_attach = function(client, bufnr)
             vim.lsp.log.debug("Pendulum LSP attached")
-            -- Activity manager is auto-started by LSP with CLI config
         end,
         on_exit = function(code, signal, _)
             lsp_client = nil
@@ -69,7 +70,7 @@ local function init_lsp_client(opts)
                     tostring(code),
                     tostring(signal)
                 ),
-                vim.log.levels.WARN
+                vim.log.levels.ERROR
             )
         end,
     })
@@ -82,7 +83,7 @@ local function init_lsp_client(opts)
         )
     else
         vim.notify(
-            "Failed to start Pendulum LSP server: " .. binary_path,
+            "Failed to start Pendulum LSP server: " .. opts.lsp_binary,
             vim.log.levels.ERROR
         )
     end

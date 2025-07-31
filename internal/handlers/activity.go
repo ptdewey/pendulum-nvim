@@ -127,11 +127,9 @@ func (am *ActivityManager) logActivityData(data *activityData) {
 		return
 	}
 
-	// Enhance data with git info
 	data.Project = getGitProject(data.Cwd)
 	data.Branch = getGitBranch(data.Cwd)
 
-	// Write to CSV
 	if err := writeActivityToCSV(data); err != nil {
 		log.Printf("Failed to write activity data: %v", err)
 	}

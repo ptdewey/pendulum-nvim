@@ -51,10 +51,6 @@ func WithTimerLen(timer time.Duration) option {
 func Setup(opts ...option) error {
 	cfg = new(config)
 
-	// Set defaults
-	cfg.TimeoutLen = 5 * time.Second
-	cfg.TimerLen = 1 * time.Second
-
 	for _, o := range opts {
 		o(cfg)
 	}

@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/ptdewey/pendulum-server/internal/config"
 	"github.com/tliron/glsp"
@@ -24,10 +23,7 @@ type activityData struct {
 	Time     string `json:"time"`
 }
 
-// TODO: output should just be error
 func LogActivity(ctx *glsp.Context, args []any) (bool, error) {
-	log.Printf("executing command 'pendulum.logActivity' with args %v (%T)", args, args)
-
 	if len(args) == 0 {
 		return false, fmt.Errorf("no arguments provided")
 	}
@@ -125,14 +121,7 @@ func (ad *activityData) toCSV() string {
 	)
 }
 
-type sessionConfig struct {
-	TimeoutLen int `json:"timeout_len"`
-	TimerLen   int `json:"timer_len"`
-}
-
 func ActivityPing(ctx *glsp.Context, args []any) (bool, error) {
-	log.Printf("executing command 'pendulum.activityPing'")
-
 	am := GetActivityManager()
 	if am == nil {
 		return false, fmt.Errorf("activity manager not initialized")
@@ -149,24 +138,6 @@ func StartSession(ctx *glsp.Context, args []any) (bool, error) {
 	cfg := config.Config()
 	timeoutLen := cfg.TimeoutLen
 	timerLen := cfg.TimerLen
-
-	// Allow Lua to override with session-specific config
-	if len(args) > 0 {
-		jsonBytes, err := json.Marshal(args[0])
-		if err == nil {
-			var sessionCfg sessionConfig
-			if json.Unmarshal(jsonBytes, &sessionCfg) == nil {
-				if sessionCfg.TimeoutLen > 0 {
-					timeoutLen = time.Duration(sessionCfg.TimeoutLen) * time.Second
-					log.Printf("Using Lua-provided timeout: %v", timeoutLen)
-				}
-				if sessionCfg.TimerLen > 0 {
-					timerLen = time.Duration(sessionCfg.TimerLen) * time.Second
-					log.Printf("Using Lua-provided timer: %v", timerLen)
-				}
-			}
-		}
-	}
 
 	// Stop existing manager if any
 	if am := GetActivityManager(); am != nil {
