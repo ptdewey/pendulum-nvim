@@ -49,7 +49,7 @@ local function init_lsp_client(opts)
     local client_id = vim.lsp.start({
         name = "pendulum-lsp",
         cmd = {
-            opts.binary_path,
+            opts.lsp_binary,
             "--csv-path",
             opts.log_file,
             "--activity-timeout",
