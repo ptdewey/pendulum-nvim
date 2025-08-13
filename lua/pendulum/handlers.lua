@@ -7,7 +7,7 @@ local function send_to_lsp(command, args)
         return
     end
 
-    lsp_client.request("workspace/executeCommand", {
+    lsp_client:request("workspace/executeCommand", {
         command = command,
         arguments = args and { args } or {},
     }, function(err, _)
@@ -144,7 +144,7 @@ function M.setup(opts)
     vim.api.nvim_create_autocmd({ "VimLeave" }, {
         group = "Pendulum",
         callback = function()
-            if lsp_client and not lsp_client.is_stopped() then
+            if lsp_client and not lsp_client:is_stopped() then
                 log_full_activity()
                 send_to_lsp("pendulum.endSession")
             end

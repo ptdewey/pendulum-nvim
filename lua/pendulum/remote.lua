@@ -8,11 +8,15 @@ local function create_buffer(content, filetype)
     local buf = vim.api.nvim_create_buf(false, true)
 
     -- Set buffer options
-    vim.api.nvim_buf_set_option(buf, "filetype", filetype or "markdown")
+    vim.api.nvim_set_option_value(
+        "filetype",
+        filetype or "markdown",
+        { buf = buf }
+    )
 
     -- Process content - LSP always returns a string
     local lines = {}
-    
+
     if type(content) == "string" then
         -- Split string on newlines and add each line
         for line in content:gmatch("[^\r\n]+") do
@@ -38,8 +42,8 @@ end
 -- Function to create a popup window with a buffer
 local function create_popup_window(buf)
     -- Get screen dimensions
-    local screen_width = vim.api.nvim_get_option("columns")
-    local screen_height = vim.api.nvim_get_option("lines")
+    local screen_width = vim.api.nvim_get_option_value("columns", {})
+    local screen_height = vim.api.nvim_get_option_value("lines", {})
 
     -- Calculate popup dimensions
     local popup_width = math.floor(screen_width * 0.85)
@@ -88,7 +92,7 @@ end
 -- Setup pendulum commands for report generation
 local function setup_pendulum_commands(lsp_client)
     vim.api.nvim_create_user_command("Pendulum", function(args)
-        if not lsp_client or lsp_client.is_stopped() then
+        if not lsp_client or lsp_client:is_stopped() then
             vim.notify(
                 "Pendulum LSP client not available",
                 vim.log.levels.ERROR
@@ -100,14 +104,14 @@ local function setup_pendulum_commands(lsp_client)
         options.view = "metrics"
 
         -- Send request to LSP for metrics report
-        lsp_client.request("workspace/executeCommand", {
+        lsp_client:request("workspace/executeCommand", {
             command = "pendulum.generateMetricsReport",
             arguments = { options },
         }, handle_lsp_response)
     end, { nargs = "?" })
 
     vim.api.nvim_create_user_command("PendulumHours", function()
-        if not lsp_client or lsp_client.is_stopped() then
+        if not lsp_client or lsp_client:is_stopped() then
             vim.notify(
                 "Pendulum LSP client not available",
                 vim.log.levels.ERROR
@@ -118,7 +122,7 @@ local function setup_pendulum_commands(lsp_client)
         options.view = "hours"
 
         -- Send request to LSP for hours report
-        lsp_client.request("workspace/executeCommand", {
+        lsp_client:request("workspace/executeCommand", {
             command = "pendulum.generateHoursReport",
             arguments = { options },
         }, handle_lsp_response)
