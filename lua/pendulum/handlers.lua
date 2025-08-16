@@ -3,7 +3,7 @@ local M = {}
 local lsp_client = nil
 
 local function send_to_lsp(command, args)
-    if not lsp_client or lsp_client.is_stopped() then
+    if not lsp_client or lsp_client:is_stopped() then
         return
     end
 
