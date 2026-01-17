@@ -274,3 +274,181 @@ func BenchmarkCompileRegexPatterns(b *testing.B) {
 		_, _ = CompileRegexPatterns(patterns)
 	}
 }
+
+func TestTimeRangeFilter(t *testing.T) {
+	t.Run("all range", func(t *testing.T) {
+		filter, err := NewTimeRangeFilter("all", "UTC")
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+
+		// Any timestamp should be in range for "all"
+		inRange, err := filter.InRange("2020-01-01 00:00:00")
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		if !inRange {
+			t.Error("Expected 'all' filter to include any timestamp")
+		}
+	})
+
+	t.Run("invalid range type", func(t *testing.T) {
+		_, err := NewTimeRangeFilter("invalid", "UTC")
+		if err == nil {
+			t.Error("Expected error for invalid range type")
+		}
+	})
+
+	t.Run("invalid timezone falls back to UTC", func(t *testing.T) {
+		filter, err := NewTimeRangeFilter("day", "Invalid/Timezone")
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		// Should not error, just use UTC
+		if filter.loc.String() != "UTC" {
+			t.Errorf("Expected UTC fallback, got %s", filter.loc.String())
+		}
+	})
+}
+
+func TestTimeRangeFilter_Boundaries(t *testing.T) {
+	loc := time.UTC
+	layout := "2006-01-02 15:04:05"
+	now := time.Now().In(loc)
+
+	// Generate boundary timestamps
+	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	endOfToday := startOfToday.Add(24*time.Hour - time.Nanosecond)
+	midToday := startOfToday.Add(12 * time.Hour)
+	yesterday := startOfToday.AddDate(0, 0, -1)
+	tomorrow := startOfToday.AddDate(0, 0, 1)
+
+	startOfWeek := startOfToday.AddDate(0, 0, -6)
+	beforeWeek := startOfWeek.Add(-time.Hour)
+
+	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
+	lastMonth := startOfMonth.AddDate(0, 0, -1)
+
+	startOfYear := time.Date(now.Year(), time.January, 1, 0, 0, 0, 0, loc)
+	lastYear := startOfYear.AddDate(0, 0, -1)
+
+	tests := []struct {
+		name      string
+		rangeType string
+		timestamp time.Time
+		expected  bool
+	}{
+		// Day range tests
+		{"day: start of today (inclusive)", "day", startOfToday, true},
+		{"day: mid today", "day", midToday, true},
+		{"day: end of today", "day", endOfToday, true},
+		{"day: yesterday excluded", "day", yesterday, false},
+		{"day: tomorrow excluded", "day", tomorrow, false},
+
+		// Week range tests (last 7 days)
+		{"week: today included", "week", midToday, true},
+		{"week: start of week (inclusive)", "week", startOfWeek, true},
+		{"week: 6 days ago mid-day", "week", startOfWeek.Add(12 * time.Hour), true},
+		{"week: before week excluded", "week", beforeWeek, false},
+
+		// Month range tests
+		{"month: today included", "month", midToday, true},
+		{"month: start of month (inclusive)", "month", startOfMonth, true},
+		{"month: last month excluded", "month", lastMonth, false},
+
+		// Year range tests
+		{"year: today included", "year", midToday, true},
+		{"year: start of year (inclusive)", "year", startOfYear, true},
+		{"year: last year excluded", "year", lastYear, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filter, err := NewTimeRangeFilter(tt.rangeType, "UTC")
+			if err != nil {
+				t.Fatalf("Failed to create filter: %v", err)
+			}
+
+			timestampStr := tt.timestamp.Format(layout)
+			result, err := filter.InRange(timestampStr)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if result != tt.expected {
+				t.Errorf("For %s with range %s: expected %v, got %v (timestamp: %s, start: %s, end: %s)",
+					tt.name, tt.rangeType, tt.expected, result,
+					timestampStr,
+					filter.startOfRange.Format(layout),
+					filter.endOfRange.Format(layout))
+			}
+		})
+	}
+}
+
+func TestTimeRangeFilter_Timezones(t *testing.T) {
+	// Test that timezone handling works correctly
+	layout := "2006-01-02 15:04:05"
+
+	// Create a filter for Eastern time
+	filter, err := NewTimeRangeFilter("day", "America/New_York")
+	if err != nil {
+		t.Fatalf("Failed to create filter: %v", err)
+	}
+
+	// Get current time in Eastern
+	eastern, _ := time.LoadLocation("America/New_York")
+	now := time.Now().In(eastern)
+	midToday := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, eastern)
+
+	// This timestamp should be in range
+	timestampStr := midToday.Format(layout)
+	inRange, err := filter.InRange(timestampStr)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if !inRange {
+		t.Errorf("Expected mid-day Eastern timestamp to be in range")
+	}
+}
+
+func TestTimeRangeFilter_InvalidTimestamp(t *testing.T) {
+	filter, err := NewTimeRangeFilter("day", "UTC")
+	if err != nil {
+		t.Fatalf("Failed to create filter: %v", err)
+	}
+
+	_, err = filter.InRange("not-a-timestamp")
+	if err == nil {
+		t.Error("Expected error for invalid timestamp")
+	}
+}
+
+func BenchmarkTimeRangeFilter_InRange(b *testing.B) {
+	filter, _ := NewTimeRangeFilter("week", "UTC")
+	timestamp := time.Now().Format("2006-01-02 15:04:05")
+
+	b.ResetTimer()
+	for b.Loop() {
+		_, _ = filter.InRange(timestamp)
+	}
+}
+
+func BenchmarkTimeRangeFilter_VsIsTimestampInRange(b *testing.B) {
+	timestamp := time.Now().Format("2006-01-02 15:04:05")
+
+	b.Run("TimeRangeFilter (reused)", func(b *testing.B) {
+		filter, _ := NewTimeRangeFilter("week", "America/New_York")
+		b.ResetTimer()
+		for b.Loop() {
+			_, _ = filter.InRange(timestamp)
+		}
+	})
+
+	b.Run("IsTimestampInRange (creates filter each time)", func(b *testing.B) {
+		b.ResetTimer()
+		for b.Loop() {
+			_, _ = IsTimestampInRange(timestamp, "week", "America/New_York")
+		}
+	})
+}

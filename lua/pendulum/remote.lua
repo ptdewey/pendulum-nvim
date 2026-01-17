@@ -91,6 +91,9 @@ end
 
 -- Setup pendulum commands for report generation
 local function setup_pendulum_commands(lsp_client)
+    -- Valid time range options for command completion
+    local time_range_options = { "all", "day", "week", "month", "year", "hour" }
+
     vim.api.nvim_create_user_command("Pendulum", function(args)
         if not lsp_client or lsp_client:is_stopped() then
             vim.notify(
@@ -113,7 +116,19 @@ local function setup_pendulum_commands(lsp_client)
             command = "pendulum.generateMetricsReport",
             arguments = { options },
         }, handle_lsp_response)
-    end, { nargs = "?" })
+    end, {
+        nargs = "?",
+        complete = function(arg_lead, cmd_line, cursor_pos)
+            -- Filter options based on what user has typed
+            local matches = {}
+            for _, opt in ipairs(time_range_options) do
+                if opt:find("^" .. arg_lead) then
+                    table.insert(matches, opt)
+                end
+            end
+            return matches
+        end,
+    })
 
     vim.api.nvim_create_user_command("PendulumHours", function()
         if not lsp_client or lsp_client:is_stopped() then
