@@ -77,3 +77,20 @@ type ProcessingResult struct {
 	Processed int
 	Duration  time.Duration
 }
+
+// PendulumHours holds aggregated hourly activity data
+type PendulumHours struct {
+	ActiveTimestamps      []string
+	Timestamps            []string
+	ActiveTimeHours       map[int]time.Duration
+	ActiveTimeHoursRecent map[int]time.Duration
+	TotalTimeHours        map[int]time.Duration
+	TotalTimeHoursRecent  map[int]time.Duration
+}
+
+// HoursResult holds the results of hours processing
+type HoursResult struct {
+	Hours     *PendulumHours
+	Processed int
+	Duration  time.Duration
+}

@@ -214,22 +214,89 @@ func TestGenerateMetricsReport_EmptyFile(t *testing.T) {
 }
 
 func TestGenerateHourlyReport(t *testing.T) {
-	// Currently just a placeholder - test that it returns without error
-	ctx := (*glsp.Context)(nil)
-	args := []any{
-		map[string]any{
-			"log_file": "/test.csv",
+	// Create a temporary CSV file with test data
+	tmpFile, err := os.CreateTemp("", "pendulum_hours_test*.csv")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	// Write test data with different hours
+	testData := `active,branch,directory,file,filetype,project,time
+true,main,/home/user/project,main.go,go,myproject,2024-01-01 10:00:00
+false,main,/home/user/project,main.go,go,myproject,2024-01-01 10:01:00
+true,main,/home/user/project,test.go,go,myproject,2024-01-01 10:02:00
+true,feature,/home/user/project,api.go,go,myproject,2024-01-01 14:00:00
+false,feature,/home/user/docs,README.md,markdown,myproject,2024-01-01 14:01:00
+true,main,/home/user/project,utils.go,go,myproject,2024-01-01 14:02:00`
+
+	if _, err := tmpFile.WriteString(testData); err != nil {
+		t.Fatalf("Failed to write test data: %v", err)
+	}
+	tmpFile.Close()
+
+	tests := []struct {
+		name         string
+		args         []any
+		expectError  bool
+		validateFunc func(string) error
+	}{
+		{
+			name: "basic hourly report",
+			args: []any{
+				map[string]any{
+					"log_file": tmpFile.Name(),
+					"top_n":    5,
+				},
+			},
+			expectError: false,
+			validateFunc: func(result string) error {
+				if !strings.Contains(result, "# Pendulum Hours Report") {
+					t.Error("Expected hours report header")
+				}
+				if !strings.Contains(result, "Times Most Active") {
+					t.Error("Expected 'Times Most Active' section")
+				}
+				if !strings.Contains(result, "Processing Summary") {
+					t.Error("Expected processing summary")
+				}
+				return nil
+			},
+		},
+		{
+			name: "invalid log file",
+			args: []any{
+				map[string]any{
+					"log_file": "/nonexistent/file.csv",
+				},
+			},
+			expectError: true,
 		},
 	}
 
-	result, err := GenerateHourlyReport(ctx, args)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := (*glsp.Context)(nil)
 
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+			result, err := GenerateHourlyReport(ctx, tt.args)
 
-	if !strings.Contains(result, "Coming soon") {
-		t.Error("Expected placeholder message for hourly report")
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if tt.validateFunc != nil {
+				if err := tt.validateFunc(result); err != nil {
+					t.Error(err)
+				}
+			}
+		})
 	}
 }
 

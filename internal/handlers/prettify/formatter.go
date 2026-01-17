@@ -211,3 +211,199 @@ func truncateHome(path string) string {
 
 	return path
 }
+
+// hourDuration is a helper struct for sorting hours by duration
+type hourDuration struct {
+	hour     int
+	duration time.Duration
+}
+
+// FormatHours converts PendulumHours into a formatted string report
+func (f *MetricsFormatter) FormatHours(hours *data.PendulumHours, topN int) []string {
+	var lines []string
+
+	// Add header
+	lines = append(lines, f.generateHoursHeader())
+
+	// Format the hours report
+	formatted := f.formatHoursReport(hours, topN)
+	lines = append(lines, formatted)
+
+	return lines
+}
+
+// generateHoursHeader creates a header for the hours report
+func (f *MetricsFormatter) generateHoursHeader() string {
+	var parts []string
+
+	parts = append(parts, "# Pendulum Hours Report")
+	parts = append(parts, fmt.Sprintf("**Generated:** %s", time.Now().Format("2006-01-02 15:04:05")))
+	parts = append(parts, fmt.Sprintf("**Log File:** %s", truncateHome(f.params.LogFile)))
+	parts = append(parts, "")
+
+	return strings.Join(parts, "\n")
+}
+
+// formatHoursReport formats the hourly activity data
+func (f *MetricsFormatter) formatHoursReport(hours *data.PendulumHours, n int) string {
+	// Convert hour durations to local timezone
+	loc, err := time.LoadLocation(f.params.TimeZone)
+	if err != nil {
+		loc = time.UTC
+	}
+
+	hourCountsActive := make(map[int]int)
+	hourDurationsActive := make(map[int]time.Duration)
+	hourDurationsTotal := make(map[int]time.Duration)
+	weekHourDurationsActive := make(map[int]time.Duration)
+	weekHourDurationsTotal := make(map[int]time.Duration)
+
+	// Count active timestamps per hour
+	layout := "2006-01-02 15:04:05"
+	for _, ts := range hours.ActiveTimestamps {
+		t, err := time.Parse(layout, ts)
+		if err != nil {
+			continue
+		}
+		hourCountsActive[t.In(loc).Hour()]++
+	}
+
+	// Convert hours to local timezone
+	for k, v := range hours.ActiveTimeHours {
+		t := time.Date(2006, 1, 2, k, 0, 0, 0, time.UTC)
+		hourDurationsActive[t.In(loc).Hour()] += v
+	}
+
+	for k, v := range hours.TotalTimeHours {
+		t := time.Date(2006, 1, 2, k, 0, 0, 0, time.UTC)
+		hourDurationsTotal[t.In(loc).Hour()] += v
+	}
+
+	for k, v := range hours.ActiveTimeHoursRecent {
+		t := time.Date(2006, 1, 2, k, 0, 0, 0, time.UTC)
+		weekHourDurationsActive[t.In(loc).Hour()] += v
+	}
+
+	for k, v := range hours.TotalTimeHoursRecent {
+		t := time.Date(2006, 1, 2, k, 0, 0, 0, time.UTC)
+		weekHourDurationsTotal[t.In(loc).Hour()] += v
+	}
+
+	// Create and sort slice by active duration (with hour as secondary key for determinism)
+	var hourDurationSlice []hourDuration
+	for hour, duration := range hourDurationsActive {
+		hourDurationSlice = append(hourDurationSlice, hourDuration{hour: hour, duration: duration})
+	}
+
+	sort.SliceStable(hourDurationSlice, func(a, b int) bool {
+		if hourDurationSlice[a].duration != hourDurationSlice[b].duration {
+			return hourDurationSlice[a].duration > hourDurationSlice[b].duration
+		}
+		// Secondary sort by hour for deterministic ordering when durations are equal
+		return hourDurationSlice[a].hour < hourDurationSlice[b].hour
+	})
+
+	if n > len(hourDurationSlice) {
+		n = len(hourDurationSlice)
+	}
+
+	if n == 0 {
+		return "No hourly activity data available."
+	}
+
+	// Calculate column widths for alignment
+	var overallHoursWidth int
+	var recentHoursWidth int
+
+	for _, d := range hourDurationsActive {
+		w := len(f.formatDuration(d))
+		if overallHoursWidth < w {
+			overallHoursWidth = w
+		}
+	}
+
+	for _, d := range weekHourDurationsActive {
+		w := len(f.formatDuration(d))
+		if recentHoursWidth < w {
+			recentHoursWidth = w
+		}
+	}
+
+	// Ensure minimum widths
+	overallHoursWidth = max(overallHoursWidth, 6)
+	recentHoursWidth = max(recentHoursWidth, 6)
+
+	bulletWidth := len(fmt.Sprintf("%d", n))
+
+	// Calculate column widths for proper alignment
+	// Column format: "duration (pct%)" where pct is 5.2f = 6 chars + " (" + ")" = 9 extra
+	overallColWidth := overallHoursWidth + 9
+	recentColWidth := recentHoursWidth + 9
+
+	// Ensure column widths are at least as wide as headers
+	overallHeader := "Overall (Active %)"
+	recentHeader := "This Week (Active %)"
+	overallColWidth = max(overallColWidth, len(overallHeader))
+	recentColWidth = max(recentColWidth, len(recentHeader))
+
+	// Calculate max entry count width for right-alignment
+	maxEntryCount := 0
+	for i := 0; i < min(n, len(hourDurationSlice)); i++ {
+		h24 := hourDurationSlice[i].hour
+		if c := hourCountsActive[h24]; c > maxEntryCount {
+			maxEntryCount = c
+		}
+	}
+	entryCountWidth := max(len(fmt.Sprintf("%d", maxEntryCount)), len("Entry Count"))
+
+	var out strings.Builder
+	out.WriteString("## Times Most Active\n")
+	out.WriteString(fmt.Sprintf("%*s  %-5s  %*s  %*s  %*s\n",
+		bulletWidth, "",
+		"Time",
+		overallColWidth, overallHeader,
+		recentColWidth, recentHeader,
+		entryCountWidth, "Entry Count"))
+
+	for i := 0; i < n; i++ {
+		h24 := hourDurationSlice[i].hour
+		c := hourCountsActive[h24]
+		dur := hourDurationsActive[h24]
+		weeklyDur := weekHourDurationsActive[h24]
+
+		h := h24
+		var period string
+		if f.params.TimeFormat == "12h" {
+			h = h24 % 12
+			if h == 0 {
+				h = 12
+			}
+			period = "AM"
+			if h24 >= 12 {
+				period = "PM"
+			}
+		}
+
+		var overallPct, recentPct float64
+		if total, exists := hourDurationsTotal[h24]; exists && total > 0 {
+			overallPct = float64(dur) / float64(total) * 100
+		}
+		if total, exists := weekHourDurationsTotal[h24]; exists && total > 0 {
+			recentPct = float64(weeklyDur) / float64(total) * 100
+		}
+
+		// Format the duration + percentage as a single column value (right-aligned)
+		overallStr := fmt.Sprintf("%*s (%5.2f%%)", overallHoursWidth, f.formatDuration(dur), overallPct)
+		recentStr := fmt.Sprintf("%*s (%5.2f%%)", recentHoursWidth, f.formatDuration(weeklyDur), recentPct)
+
+		out.WriteString(fmt.Sprintf("%*d. %2d%-2s  %*s  %*s  %*d\n",
+			bulletWidth, i+1,
+			h, period,
+			overallColWidth, overallStr,
+			recentColWidth, recentStr,
+			entryCountWidth, c,
+		))
+	}
+
+	return out.String()
+}

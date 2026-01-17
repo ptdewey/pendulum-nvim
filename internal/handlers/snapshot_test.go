@@ -266,3 +266,221 @@ func TestFormatterSnapshotDirectly(t *testing.T) {
 		shutter.ScrubRegex(`\*\*Generated:\*\* \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}`, "**Generated:** <TIMESTAMP>"),
 	)
 }
+
+// TestHoursReportSnapshot tests the full hours report output using snapshot testing
+func TestHoursReportSnapshot(t *testing.T) {
+	logFile := filepath.Join(getTestdataPath(), "synthetic_log.csv")
+
+	// Create params for the report
+	params := &data.MetricsParams{
+		LogFile:               logFile,
+		TopN:                  5,
+		TimeRange:             "all",
+		TimeFormat:            "24h",
+		TimeZone:              "UTC",
+		TimeoutLen:            180, // 3 minutes - entries in test data are 1 min apart
+		ReportExcludes:        map[string][]string{},
+		ReportSectionExcludes: []string{},
+	}
+
+	// Read CSV data
+	csvReader := data.NewCSVReader(logFile)
+	csvData, err := csvReader.ReadAll()
+	if err != nil {
+		t.Fatalf("Failed to read CSV: %v", err)
+	}
+
+	// Aggregate hours
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	aggregator := data.NewMetricsAggregator(params)
+	result, err := aggregator.AggregatePendulumHours(ctx, csvData)
+	if err != nil {
+		t.Fatalf("Failed to aggregate hours: %v", err)
+	}
+
+	// Format the report
+	formatter := prettify.NewMetricsFormatter(params)
+	formattedLines := formatter.FormatHours(result.Hours, params.TopN)
+
+	// Join lines into final report
+	report := ""
+	for _, line := range formattedLines {
+		report += line + "\n"
+	}
+
+	// Snapshot with scrubbers for dynamic content
+	shutter.SnapString(t, "hours_report_all", report,
+		// Scrub the generated timestamp (format: 2006-01-02 15:04:05)
+		shutter.ScrubRegex(`\*\*Generated:\*\* \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}`, "**Generated:** <TIMESTAMP>"),
+		// Scrub the log file path which varies by environment
+		shutter.ScrubRegex(`\*\*Log File:\*\* .+synthetic_log\.csv`, "**Log File:** <LOG_FILE_PATH>"),
+	)
+}
+
+// TestHoursReportSnapshot12h tests hours report with 12-hour time format
+func TestHoursReportSnapshot12h(t *testing.T) {
+	logFile := filepath.Join(getTestdataPath(), "synthetic_log.csv")
+
+	// Create params with 12h format
+	params := &data.MetricsParams{
+		LogFile:               logFile,
+		TopN:                  5,
+		TimeRange:             "all",
+		TimeFormat:            "12h",
+		TimeZone:              "UTC",
+		TimeoutLen:            180,
+		ReportExcludes:        map[string][]string{},
+		ReportSectionExcludes: []string{},
+	}
+
+	// Read CSV data
+	csvReader := data.NewCSVReader(logFile)
+	csvData, err := csvReader.ReadAll()
+	if err != nil {
+		t.Fatalf("Failed to read CSV: %v", err)
+	}
+
+	// Aggregate hours
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	aggregator := data.NewMetricsAggregator(params)
+	result, err := aggregator.AggregatePendulumHours(ctx, csvData)
+	if err != nil {
+		t.Fatalf("Failed to aggregate hours: %v", err)
+	}
+
+	// Format the report
+	formatter := prettify.NewMetricsFormatter(params)
+	formattedLines := formatter.FormatHours(result.Hours, params.TopN)
+
+	// Join lines into final report
+	report := ""
+	for _, line := range formattedLines {
+		report += line + "\n"
+	}
+
+	// Snapshot with scrubbers
+	shutter.SnapString(t, "hours_report_12h", report,
+		shutter.ScrubRegex(`\*\*Generated:\*\* \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}`, "**Generated:** <TIMESTAMP>"),
+		shutter.ScrubRegex(`\*\*Log File:\*\* .+synthetic_log\.csv`, "**Log File:** <LOG_FILE_PATH>"),
+	)
+}
+
+// TestHoursReportSnapshotTopN tests hours report with different TopN values
+func TestHoursReportSnapshotTopN(t *testing.T) {
+	logFile := filepath.Join(getTestdataPath(), "synthetic_log.csv")
+
+	// Create params with TopN = 3
+	params := &data.MetricsParams{
+		LogFile:               logFile,
+		TopN:                  3,
+		TimeRange:             "all",
+		TimeFormat:            "24h",
+		TimeZone:              "UTC",
+		TimeoutLen:            180,
+		ReportExcludes:        map[string][]string{},
+		ReportSectionExcludes: []string{},
+	}
+
+	// Read CSV data
+	csvReader := data.NewCSVReader(logFile)
+	csvData, err := csvReader.ReadAll()
+	if err != nil {
+		t.Fatalf("Failed to read CSV: %v", err)
+	}
+
+	// Aggregate hours
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	aggregator := data.NewMetricsAggregator(params)
+	result, err := aggregator.AggregatePendulumHours(ctx, csvData)
+	if err != nil {
+		t.Fatalf("Failed to aggregate hours: %v", err)
+	}
+
+	// Format the report
+	formatter := prettify.NewMetricsFormatter(params)
+	formattedLines := formatter.FormatHours(result.Hours, params.TopN)
+
+	// Join lines into final report
+	report := ""
+	for _, line := range formattedLines {
+		report += line + "\n"
+	}
+
+	// Snapshot with scrubbers
+	shutter.SnapString(t, "hours_report_top3", report,
+		shutter.ScrubRegex(`\*\*Generated:\*\* \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}`, "**Generated:** <TIMESTAMP>"),
+		shutter.ScrubRegex(`\*\*Log File:\*\* .+synthetic_log\.csv`, "**Log File:** <LOG_FILE_PATH>"),
+	)
+}
+
+// TestHoursFormatterSnapshotDirectly tests the hours formatter output directly without full pipeline
+func TestHoursFormatterSnapshotDirectly(t *testing.T) {
+	// Create synthetic hours data directly
+	hours := &data.PendulumHours{
+		ActiveTimestamps: []string{
+			"2024-06-15 09:00:00",
+			"2024-06-15 09:01:00",
+			"2024-06-15 10:00:00",
+			"2024-06-15 10:01:00",
+			"2024-06-15 10:02:00",
+			"2024-06-15 14:00:00",
+		},
+		Timestamps: []string{
+			"2024-06-15 09:00:00",
+			"2024-06-15 09:01:00",
+			"2024-06-15 09:02:00",
+			"2024-06-15 10:00:00",
+			"2024-06-15 10:01:00",
+			"2024-06-15 10:02:00",
+			"2024-06-15 10:03:00",
+			"2024-06-15 14:00:00",
+			"2024-06-15 14:01:00",
+		},
+		ActiveTimeHours: map[int]time.Duration{
+			9:  10 * time.Minute,
+			10: 25 * time.Minute,
+			14: 15 * time.Minute,
+		},
+		ActiveTimeHoursRecent: map[int]time.Duration{
+			9:  5 * time.Minute,
+			10: 12 * time.Minute,
+			14: 8 * time.Minute,
+		},
+		TotalTimeHours: map[int]time.Duration{
+			9:  15 * time.Minute,
+			10: 30 * time.Minute,
+			14: 20 * time.Minute,
+		},
+		TotalTimeHoursRecent: map[int]time.Duration{
+			9:  8 * time.Minute,
+			10: 15 * time.Minute,
+			14: 10 * time.Minute,
+		},
+	}
+
+	params := &data.MetricsParams{
+		LogFile:    "/test/pendulum.csv",
+		TopN:       5,
+		TimeRange:  "all",
+		TimeFormat: "24h",
+		TimeZone:   "UTC",
+	}
+
+	formatter := prettify.NewMetricsFormatter(params)
+	formattedLines := formatter.FormatHours(hours, params.TopN)
+
+	report := ""
+	for _, line := range formattedLines {
+		report += line + "\n"
+	}
+
+	shutter.SnapString(t, "hours_formatter_direct", report,
+		shutter.ScrubRegex(`\*\*Generated:\*\* \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}`, "**Generated:** <TIMESTAMP>"),
+	)
+}

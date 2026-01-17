@@ -1,0 +1,16 @@
+---
+title: hours_formatter_direct
+test_name: TestHoursFormatterSnapshotDirectly
+file_name: snapshot_test.go
+version: 0.1.0
+---
+# Pendulum Hours Report
+**Generated:** <TIMESTAMP>
+**Log File:** /test/pendulum.csv
+
+## Times Most Active
+   Time   Overall (Active %)  This Week (Active %)  Entry Count
+1. 10       25.00m (83.33%)       12.00m (80.00%)            3
+2. 14       15.00m (75.00%)        8.00m (80.00%)            1
+3.  9       10.00m (66.67%)        5.00m (62.50%)            2
+

@@ -143,7 +143,7 @@ local function setup_pendulum_commands(lsp_client)
 
         -- Send request to LSP for hours report
         lsp_client:request("workspace/executeCommand", {
-            command = "pendulum.generateHoursReport",
+            command = "pendulum.generateHourlyReport",
             arguments = { options },
         }, handle_lsp_response)
     end, { nargs = 0 })

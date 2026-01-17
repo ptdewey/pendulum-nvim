@@ -280,3 +280,113 @@ func (a *MetricsAggregator) calculateActivePercentages(values map[string]*Pendul
 		}
 	}
 }
+
+// AggregatePendulumHours aggregates hourly activity data from CSV records
+func (a *MetricsAggregator) AggregatePendulumHours(ctx context.Context, data [][]string) (*HoursResult, error) {
+	startTime := time.Now()
+
+	if len(data) <= 1 {
+		return &HoursResult{
+			Hours: &PendulumHours{
+				ActiveTimestamps:      []string{},
+				Timestamps:            []string{},
+				ActiveTimeHours:       make(map[int]time.Duration),
+				ActiveTimeHoursRecent: make(map[int]time.Duration),
+				TotalTimeHours:        make(map[int]time.Duration),
+				TotalTimeHoursRecent:  make(map[int]time.Duration),
+			},
+			Processed: 0,
+			Duration:  time.Since(startTime),
+		}, nil
+	}
+
+	hours := &PendulumHours{
+		ActiveTimestamps:      []string{},
+		Timestamps:            []string{},
+		ActiveTimeHours:       make(map[int]time.Duration),
+		ActiveTimeHoursRecent: make(map[int]time.Duration),
+		TotalTimeHours:        make(map[int]time.Duration),
+		TotalTimeHoursRecent:  make(map[int]time.Duration),
+	}
+
+	timecol := CSVColumns["time"]
+
+	// Create time range filter for "recent" (last week)
+	weekFilter, err := NewTimeRangeFilter("week", a.params.TimeZone)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := 1; i < len(data); i++ {
+		select {
+		case <-ctx.Done():
+			return nil, &MetricsError{
+				Type:    ErrProcessingTimeout,
+				Message: "hours aggregation cancelled",
+				Cause:   ctx.Err(),
+			}
+		default:
+		}
+
+		if len(data[i]) <= timecol {
+			continue
+		}
+
+		active, err := strconv.ParseBool(data[i][0])
+		if err != nil {
+			log.Printf("Error parsing boolean at row %d, value: %s, error: %v", i, data[i][0], err)
+			continue
+		}
+
+		timestampStr := data[i][timecol]
+		a.updateTotalHours(hours, timestampStr, weekFilter)
+
+		if active {
+			a.updateActiveHours(hours, timestampStr, weekFilter)
+		}
+	}
+
+	return &HoursResult{
+		Hours:     hours,
+		Processed: len(data) - 1,
+		Duration:  time.Since(startTime),
+	}, nil
+}
+
+// updateTotalHours updates total time per hour
+func (a *MetricsAggregator) updateTotalHours(hours *PendulumHours, timestampStr string, weekFilter *TimeRangeFilter) {
+	hours.Timestamps = append(hours.Timestamps, timestampStr)
+
+	t, err := time.Parse("2006-01-02 15:04:05", timestampStr)
+	if err != nil {
+		log.Printf("Error parsing timestamp: %s, error: %v", timestampStr, err)
+		return
+	}
+
+	tth, _ := TimeDiff(hours.Timestamps, a.params.TimeoutLen, true)
+	hours.TotalTimeHours[t.Hour()] += tth
+
+	inRange, _ := weekFilter.InRange(timestampStr)
+	if inRange {
+		hours.TotalTimeHoursRecent[t.Hour()] += tth
+	}
+}
+
+// updateActiveHours updates active time per hour
+func (a *MetricsAggregator) updateActiveHours(hours *PendulumHours, timestampStr string, weekFilter *TimeRangeFilter) {
+	hours.ActiveTimestamps = append(hours.ActiveTimestamps, timestampStr)
+
+	t, err := time.Parse("2006-01-02 15:04:05", timestampStr)
+	if err != nil {
+		log.Printf("Error parsing timestamp: %s, error: %v", timestampStr, err)
+		return
+	}
+
+	ath, _ := TimeDiff(hours.ActiveTimestamps, a.params.TimeoutLen, true)
+	hours.ActiveTimeHours[t.Hour()] += ath
+
+	inRange, _ := weekFilter.InRange(timestampStr)
+	if inRange {
+		hours.ActiveTimeHoursRecent[t.Hour()] += ath
+	}
+}
