@@ -100,7 +100,12 @@ local function setup_pendulum_commands(lsp_client)
             return
         end
 
-        options.time_range = (args.args and args.args ~= "") or "all"
+        -- Parse time range from command argument (e.g., :Pendulum week)
+        local time_range = "all"
+        if args.args and args.args ~= "" then
+            time_range = args.args
+        end
+        options.time_range = time_range
         options.view = "metrics"
 
         -- Send request to LSP for metrics report

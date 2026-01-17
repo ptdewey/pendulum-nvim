@@ -193,6 +193,12 @@ func (a *MetricsAggregator) aggregateMetric(data [][]string, colIdx int, colName
 		}
 	}
 
+	// Create time range filter once (pre-computes boundaries)
+	timeFilter, err := NewTimeRangeFilter(a.params.TimeRange, a.params.TimeZone)
+	if err != nil {
+		return metric, err
+	}
+
 	// Process each row
 	for i := 1; i < len(data); i++ {
 		if len(data[i]) <= colIdx || len(data[i]) <= timecol {
@@ -205,16 +211,14 @@ func (a *MetricsAggregator) aggregateMetric(data [][]string, colIdx int, colName
 			continue
 		}
 
-		// Check time range
-		if a.params.TimeRange != "all" {
-			inRange, err := IsTimestampInRange(data[i][timecol], a.params.TimeRange, a.params.TimeZone)
-			if err != nil {
-				log.Printf("Error checking timestamp range: %v", err)
-				continue
-			}
-			if !inRange {
-				continue
-			}
+		// Check time range using pre-computed filter
+		inRange, err := timeFilter.InRange(data[i][timecol])
+		if err != nil {
+			log.Printf("Error checking timestamp range: %v", err)
+			continue
+		}
+		if !inRange {
+			continue
 		}
 
 		val := data[i][colIdx]

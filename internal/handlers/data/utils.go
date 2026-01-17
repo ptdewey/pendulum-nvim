@@ -114,25 +114,24 @@ func IsExcluded(val string, patterns []*regexp.Regexp) bool {
 	return false
 }
 
-// IsTimestampInRange checks if a timestamp falls within the specified time range
-func IsTimestampInRange(timestampStr, rangeType, timeZone string) (bool, error) {
-	layout := "2006-01-02 15:04:05"
+// TimeRangeFilter provides efficient time range filtering with pre-computed boundaries
+type TimeRangeFilter struct {
+	startOfRange time.Time
+	endOfRange   time.Time
+	loc          *time.Location
+	layout       string
+	isAll        bool
+}
 
-	timestamp, err := time.Parse(layout, timestampStr)
-	if err != nil {
-		return false, &MetricsError{
-			Type:    ErrParsingFailed,
-			Message: fmt.Sprintf("failed to parse timestamp: %s", timestampStr),
-			Cause:   err,
-		}
+// NewTimeRangeFilter creates a filter with pre-computed time boundaries
+func NewTimeRangeFilter(rangeType, timeZone string) (*TimeRangeFilter, error) {
+	if rangeType == "all" {
+		return &TimeRangeFilter{isAll: true}, nil
 	}
 
-	// Load timezone
 	loc, err := time.LoadLocation(timeZone)
 	if err != nil {
-		loc = time.UTC // Fallback to UTC
-	} else {
-		timestamp = timestamp.In(loc)
+		loc = time.UTC
 	}
 
 	now := time.Now().In(loc)
@@ -141,27 +140,55 @@ func IsTimestampInRange(timestampStr, rangeType, timeZone string) (bool, error) 
 	switch rangeType {
 	case "today", "day":
 		startOfRange = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
-		endOfRange = startOfRange.Add(24 * time.Hour).Add(-time.Nanosecond)
+		endOfRange = startOfRange.Add(24 * time.Hour)
 	case "year":
 		startOfRange = time.Date(now.Year(), time.January, 1, 0, 0, 0, 0, loc)
-		endOfRange = startOfRange.AddDate(1, 0, 0).Add(-time.Nanosecond)
+		endOfRange = startOfRange.AddDate(1, 0, 0)
 	case "month":
 		startOfRange = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
-		endOfRange = startOfRange.AddDate(0, 1, 0).Add(-time.Nanosecond)
+		endOfRange = startOfRange.AddDate(0, 1, 0)
 	case "week":
-		startOfRange = now.AddDate(0, 0, -6)
-		endOfRange = now.Add(24*time.Hour - time.Nanosecond)
+		startOfRange = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc).AddDate(0, 0, -6)
+		endOfRange = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc).Add(24 * time.Hour)
 	case "hour":
 		startOfRange = now.Truncate(time.Hour)
-		endOfRange = startOfRange.Add(time.Hour).Add(-time.Nanosecond)
-	case "all":
-		return true, nil
+		endOfRange = startOfRange.Add(time.Hour)
 	default:
-		return false, &MetricsError{
+		return nil, &MetricsError{
 			Type:    ErrInvalidParameters,
 			Message: fmt.Sprintf("unsupported time range: %s", rangeType),
 		}
 	}
 
-	return timestamp.After(startOfRange) && timestamp.Before(endOfRange), nil
+	return &TimeRangeFilter{
+		startOfRange: startOfRange,
+		endOfRange:   endOfRange,
+		loc:          loc,
+		layout:       "2006-01-02 15:04:05",
+		isAll:        false,
+	}, nil
+}
+
+// InRange checks if a timestamp string falls within the pre-computed range
+func (f *TimeRangeFilter) InRange(timestampStr string) (bool, error) {
+	if f.isAll {
+		return true, nil
+	}
+
+	timestamp, err := time.ParseInLocation(f.layout, timestampStr, f.loc)
+	if err != nil {
+		return false, err
+	}
+
+	return !timestamp.Before(f.startOfRange) && timestamp.Before(f.endOfRange), nil
+}
+
+// IsTimestampInRange checks if a timestamp falls within the specified time range
+// Deprecated: Use TimeRangeFilter for better performance when checking multiple timestamps
+func IsTimestampInRange(timestampStr, rangeType, timeZone string) (bool, error) {
+	filter, err := NewTimeRangeFilter(rangeType, timeZone)
+	if err != nil {
+		return false, err
+	}
+	return filter.InRange(timestampStr)
 }
