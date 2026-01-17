@@ -3,6 +3,27 @@ local M = {}
 local lsp_client = nil
 local lsp_ready = false
 local message_queue = {}
+local stored_opts = nil
+
+-- Get the plugin installation path
+local function get_plugin_path()
+    -- Extract path from this file's location: .../pendulum-nvim/lua/pendulum/handlers.lua
+    return debug.getinfo(1).source:sub(2):match("(.*/)lua/pendulum/")
+end
+
+-- Get the default binary path based on OS
+local function get_default_bin_path()
+    local path = get_plugin_path()
+    if not path then
+        return nil
+    end
+
+    local uname = vim.loop.os_uname().sysname
+    local path_separator = (uname == "Windows_NT") and "\\" or "/"
+    local bin_name = (uname == "Windows_NT") and "pendulum-lsp.exe" or "pendulum-lsp"
+
+    return path .. "bin" .. path_separator .. bin_name
+end
 
 local function flush_queue()
     if not lsp_ready or not lsp_client or lsp_client:is_stopped() then
@@ -79,21 +100,27 @@ local function log_full_activity(filepath)
 end
 
 local function init_lsp_client(opts)
-    if lsp_client then
+    if lsp_client and not lsp_client:is_stopped() then
         return lsp_client
+    end
+
+    -- Reset state
+    lsp_client = nil
+    lsp_ready = false
+
+    if not opts.lsp_binary then
+        -- Binary path not set, remote.lua will handle building
+        return nil
     end
 
     local stat = vim.loop.fs_stat(opts.lsp_binary)
 
     if not stat then
-        vim.notify(
-            "Pendulum LSP binary not found: " .. opts.lsp_binary,
-            vim.log.levels.ERROR
-        )
+        -- Binary doesn't exist, remote.lua will handle building
         return nil
     end
 
-    if not vim.fn.executable(opts.lsp_binary) then
+    if vim.fn.executable(opts.lsp_binary) ~= 1 then
         vim.notify(
             "Pendulum LSP binary is not executable: " .. opts.lsp_binary,
             vim.log.levels.ERROR
@@ -130,14 +157,16 @@ local function init_lsp_client(opts)
         on_exit = function(code, signal, _)
             lsp_client = nil
             lsp_ready = false
-            vim.notify(
-                string.format(
-                    "Pendulum LSP server exited with code: %s, signal: %s",
-                    tostring(code),
-                    tostring(signal)
-                ),
-                vim.log.levels.ERROR
-            )
+            if code ~= 0 then
+                vim.notify(
+                    string.format(
+                        "Pendulum LSP server exited with code: %s, signal: %s",
+                        tostring(code),
+                        tostring(signal)
+                    ),
+                    vim.log.levels.WARN
+                )
+            end
         end,
     })
 
@@ -146,11 +175,6 @@ local function init_lsp_client(opts)
         vim.lsp.log.debug(
             "Pendulum LSP client started with ID: " .. client_id,
             vim.log.levels.INFO
-        )
-    else
-        vim.notify(
-            "Failed to start Pendulum LSP server: " .. opts.lsp_binary,
-            vim.log.levels.ERROR
         )
     end
 
@@ -161,11 +185,26 @@ function M.get_lsp_client()
     return lsp_client
 end
 
+-- Reinitialize LSP client (called after binary is built)
+function M.reinit_lsp()
+    if stored_opts then
+        return init_lsp_client(stored_opts)
+    end
+    return nil
+end
+
 function M.setup(opts)
     opts = opts or {}
-    opts.lsp_binary = opts.lsp_binary or "pendulum-lsp"
     opts.timeout_len = opts.timeout_len or 5
     opts.timer_len = opts.timer_len or 1
+
+    -- Determine binary path - use provided path or default to plugin bin directory
+    if not opts.lsp_binary then
+        opts.lsp_binary = get_default_bin_path()
+    end
+
+    -- Store opts for potential reinit
+    stored_opts = opts
 
     if not opts.log_file then
         vim.notify(
@@ -216,7 +255,7 @@ function M.setup(opts)
         end,
     })
 
-    -- Initialize LSP client immediately
+    -- Initialize LSP client (will silently fail if binary doesn't exist)
     init_lsp_client(opts)
 end
 

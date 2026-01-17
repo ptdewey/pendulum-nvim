@@ -25,6 +25,14 @@ func GenerateMetricsReport(ctx *glsp.Context, args []any) (string, error) {
 		return "", err
 	}
 
+	// Log parsed exclusion settings for debugging
+	if len(metricsParams.ReportExcludes) > 0 {
+		log.Printf("ReportExcludes: %v", metricsParams.ReportExcludes)
+	}
+	if len(metricsParams.ReportSectionExcludes) > 0 {
+		log.Printf("ReportSectionExcludes: %v", metricsParams.ReportSectionExcludes)
+	}
+
 	// Use config log file if not provided in params
 	if metricsParams.LogFile == "" {
 		cfg := config.Config()

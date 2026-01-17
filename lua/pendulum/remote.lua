@@ -1,6 +1,105 @@
 local M = {}
 
 local options = {}
+local plugin_path = nil
+local bin_path = nil
+
+-- Get the plugin installation path
+local function get_plugin_path()
+    if plugin_path then
+        return plugin_path
+    end
+    -- Extract path from this file's location: .../pendulum-nvim/lua/pendulum/remote.lua
+    plugin_path = debug.getinfo(1).source:sub(2):match("(.*/)lua/pendulum/")
+    return plugin_path
+end
+
+-- Get the binary path based on OS
+local function get_bin_path()
+    if bin_path then
+        return bin_path
+    end
+
+    local path = get_plugin_path()
+    if not path then
+        return nil
+    end
+
+    local uname = vim.loop.os_uname().sysname
+    local path_separator = (uname == "Windows_NT") and "\\" or "/"
+    local bin_name = (uname == "Windows_NT") and "pendulum-lsp.exe"
+        or "pendulum-lsp"
+
+    bin_path = path .. "bin" .. path_separator .. bin_name
+    return bin_path
+end
+
+-- Check if the binary exists
+local function binary_exists()
+    local path = get_bin_path()
+    if not path then
+        return false
+    end
+
+    local stat = vim.loop.fs_stat(path)
+    return stat ~= nil
+end
+
+-- Build the LSP binary
+local function build_binary(callback)
+    local path = get_plugin_path()
+    if not path then
+        vim.notify("Could not determine plugin path", vim.log.levels.ERROR)
+        if callback then
+            callback(false)
+        end
+        return
+    end
+
+    vim.notify("Building Pendulum LSP binary with Go...", vim.log.levels.INFO)
+
+    local target_bin = get_bin_path()
+    local build_cmd = string.format(
+        "cd %s && go build -o %s .",
+        vim.fn.shellescape(path),
+        vim.fn.shellescape(target_bin)
+    )
+
+    vim.fn.jobstart(build_cmd, {
+        on_exit = function(_, code, _)
+            if code == 0 then
+                vim.schedule(function()
+                    vim.notify(
+                        "Pendulum LSP binary compiled successfully.",
+                        vim.log.levels.INFO
+                    )
+                    if callback then
+                        callback(true)
+                    end
+                end)
+            else
+                vim.schedule(function()
+                    vim.notify(
+                        "Failed to compile Pendulum LSP binary. Make sure Go is installed.",
+                        vim.log.levels.ERROR
+                    )
+                    if callback then
+                        callback(false)
+                    end
+                end)
+            end
+        end,
+        on_stderr = function(_, data, _)
+            for _, line in ipairs(data) do
+                if line ~= "" then
+                    vim.schedule(function()
+                        vim.notify("Build: " .. line, vim.log.levels.WARN)
+                    end)
+                end
+            end
+        end,
+    })
+end
 
 -- Function to create a buffer with the content received from the LSP
 local function create_buffer(content, filetype)
@@ -97,7 +196,7 @@ local function setup_pendulum_commands(lsp_client)
     vim.api.nvim_create_user_command("Pendulum", function(args)
         if not lsp_client or lsp_client:is_stopped() then
             vim.notify(
-                "Pendulum LSP client not available",
+                "Pendulum LSP client not available. Try :PendulumRebuild",
                 vim.log.levels.ERROR
             )
             return
@@ -118,6 +217,7 @@ local function setup_pendulum_commands(lsp_client)
         }, handle_lsp_response)
     end, {
         nargs = "?",
+        force = true,
         complete = function(arg_lead, cmd_line, cursor_pos)
             -- Filter options based on what user has typed
             local matches = {}
@@ -133,7 +233,7 @@ local function setup_pendulum_commands(lsp_client)
     vim.api.nvim_create_user_command("PendulumHours", function()
         if not lsp_client or lsp_client:is_stopped() then
             vim.notify(
-                "Pendulum LSP client not available",
+                "Pendulum LSP client not available. Try :PendulumRebuild",
                 vim.log.levels.ERROR
             )
             return
@@ -146,13 +246,85 @@ local function setup_pendulum_commands(lsp_client)
             command = "pendulum.generateHourlyReport",
             arguments = { options },
         }, handle_lsp_response)
-    end, { nargs = 0 })
+    end, { nargs = 0, force = true })
+end
+
+-- Setup the PendulumRebuild command (always available)
+local function setup_rebuild_command()
+    vim.api.nvim_create_user_command("PendulumRebuild", function()
+        -- Stop existing LSP client if running
+        local handlers = require("pendulum.handlers")
+        local client = handlers.get_lsp_client()
+        if client and not client:is_stopped() then
+            vim.notify(
+                "Stopping Pendulum LSP before rebuild...",
+                vim.log.levels.INFO
+            )
+            client:stop()
+        end
+
+        build_binary(function(success)
+            if success then
+                -- Reinitialize the LSP client
+                vim.defer_fn(function()
+                    local new_client = handlers.reinit_lsp()
+                    if new_client then
+                        setup_pendulum_commands(new_client)
+                        vim.notify(
+                            "Pendulum LSP reinitialized.",
+                            vim.log.levels.INFO
+                        )
+                    else
+                        vim.notify(
+                            "Pendulum LSP binary built. Restart Neovim to use it.",
+                            vim.log.levels.INFO
+                        )
+                    end
+                end, 500)
+            end
+        end)
+    end, { nargs = 0, force = true })
 end
 
 -- Report generation setup using LSP
 function M.setup(opts)
     options = opts
 
+    -- Determine binary path - use provided path or default to plugin bin directory
+    if not opts.lsp_binary then
+        opts.lsp_binary = get_bin_path()
+    end
+
+    -- Always set up the PendulumRebuild command
+    setup_rebuild_command()
+
+    -- Check if binary exists, build if missing
+    if not binary_exists() then
+        vim.notify(
+            "Pendulum LSP binary not found, attempting to build...",
+            vim.log.levels.INFO
+        )
+        build_binary(function(success)
+            if success then
+                -- Reinitialize the LSP client after build
+                vim.defer_fn(function()
+                    local handlers = require("pendulum.handlers")
+                    local new_client = handlers.reinit_lsp()
+                    if new_client then
+                        setup_pendulum_commands(new_client)
+                    end
+                end, 500)
+            end
+        end)
+        return
+    end
+
+    -- Binary exists, initialize commands
+    M.initialize_lsp_commands()
+end
+
+-- Initialize LSP commands (called after binary is available)
+function M.initialize_lsp_commands()
     -- Get LSP client from handlers module
     local handlers = require("pendulum.handlers")
     local lsp_client = handlers.get_lsp_client()
@@ -168,7 +340,7 @@ function M.setup(opts)
                 setup_pendulum_commands(client)
             else
                 vim.notify(
-                    "Unable to get Pendulum LSP client",
+                    "Pendulum LSP client not available. Try :PendulumRebuild",
                     vim.log.levels.WARN
                 )
             end

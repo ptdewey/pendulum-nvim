@@ -170,12 +170,15 @@ func NewTimeRangeFilter(rangeType, timeZone string) (*TimeRangeFilter, error) {
 }
 
 // InRange checks if a timestamp string falls within the pre-computed range
+// Note: timestamps in the CSV are stored in UTC, so we parse them as UTC
+// and compare against the range boundaries (which are also in UTC internally)
 func (f *TimeRangeFilter) InRange(timestampStr string) (bool, error) {
 	if f.isAll {
 		return true, nil
 	}
 
-	timestamp, err := time.ParseInLocation(f.layout, timestampStr, f.loc)
+	// Timestamps in CSV are always in UTC
+	timestamp, err := time.Parse(f.layout, timestampStr)
 	if err != nil {
 		return false, err
 	}
