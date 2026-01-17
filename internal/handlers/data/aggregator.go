@@ -101,7 +101,11 @@ func (a *MetricsAggregator) AggregatePendulumMetrics(ctx context.Context, data [
 			}
 			metrics[result.Index] = result
 
-		case err := <-errors:
+		case err, ok := <-errors:
+			if !ok {
+				// Errors channel closed, ignore
+				continue
+			}
 			if firstError == nil {
 				firstError = err
 			}

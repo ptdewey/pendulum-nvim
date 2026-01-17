@@ -27,7 +27,7 @@ func (f *MetricsFormatter) FormatMetrics(metrics []data.PendulumMetric) []string
 	var lines []string
 
 	// Add header with metadata
-	header := f.generateHeader(len(metrics))
+	header := f.generateHeader()
 	if header != "" {
 		lines = append(lines, header)
 	}
@@ -49,17 +49,16 @@ func (f *MetricsFormatter) FormatMetrics(metrics []data.PendulumMetric) []string
 }
 
 // generateHeader creates a header with report metadata
-func (f *MetricsFormatter) generateHeader(metricCount int) string {
+func (f *MetricsFormatter) generateHeader() string {
 	var parts []string
 
 	parts = append(parts, "# Pendulum Metrics Report")
 	parts = append(parts, fmt.Sprintf("**Generated:** %s", time.Now().Format("2006-01-02 15:04:05")))
 	parts = append(parts, fmt.Sprintf("**Time Range:** %s", f.params.TimeRange))
 	parts = append(parts, fmt.Sprintf("**Log File:** %s", truncateHome(f.params.LogFile)))
-	parts = append(parts, fmt.Sprintf("**Metrics:** %d", metricCount))
 	parts = append(parts, "")
 
-	return strings.Join(parts, "\n\n")
+	return strings.Join(parts, "\n")
 }
 
 // formatMetric converts a single PendulumMetric struct into a formatted string
@@ -85,23 +84,24 @@ func (f *MetricsFormatter) formatMetric(metric data.PendulumMetric, n int) strin
 
 	// Generate formatted output
 	name := f.titleCase(metric.Name)
-	out := fmt.Sprintf("## Top %d %s\n", n, f.prettifyMetricName(name))
+	var out strings.Builder
+	fmt.Fprintf(&out, "## Top %d %s\n", n, f.prettifyMetricName(name))
 
 	for i := 0; i < n; i++ {
 		entry := metric.Value[keys[i]]
 		if math.IsNaN(entry.ActivePct) {
 			continue
 		}
-		out += f.formatEntry(entry, i+1, maxIDLen, n) + "\n"
+		out.WriteString(f.formatEntry(entry, i+1, maxIDLen, n) + "\n")
 	}
 
-	return out
+	return out.String()
 }
 
 // formatEntry converts a single PendulumEntry into a formatted string
 func (f *MetricsFormatter) formatEntry(e *data.PendulumEntry, rank int, maxIDLen int, totalRanks int) string {
 	rankWidth := len(fmt.Sprintf("%d", totalRanks))
-	format := fmt.Sprintf("%%%dd. %%-%ds: Total %%+6s, Active %%+6s (%%-5.2f%%%%)",
+	format := fmt.Sprintf("%%%dd. %%-%ds: Total %%6s, Active %%6s (%%-5.2f%%%%)",
 		rankWidth, maxIDLen+1)
 
 	return fmt.Sprintf(format,
@@ -173,26 +173,19 @@ func (f *MetricsFormatter) formatDuration(d time.Duration) string {
 		return "0s"
 	}
 
-	hours := int(d.Hours())
-	minutes := int(d.Minutes()) % 60
-	seconds := int(d.Seconds()) % 60
-
-	if hours > 0 {
-		if f.params.TimeFormat == "24h" || hours >= 24 {
-			return fmt.Sprintf("%dh%02dm", hours, minutes)
-		}
-		// 12h format
-		if hours > 12 {
-			return fmt.Sprintf("%dh%02dm", hours-12, minutes)
-		}
-		return fmt.Sprintf("%dh%02dm", hours, minutes)
+	if d >= 24*time.Hour {
+		days := float64(d) / float64(24*time.Hour)
+		return fmt.Sprintf("%.2fd", days)
+	} else if d >= time.Hour {
+		hours := float64(d) / float64(time.Hour)
+		return fmt.Sprintf("%.2fh", hours)
+	} else if d >= time.Minute {
+		minutes := float64(d) / float64(time.Minute)
+		return fmt.Sprintf("%.2fm", minutes)
+	} else {
+		seconds := float64(d) / float64(time.Second)
+		return fmt.Sprintf("%.2fs", seconds)
 	}
-
-	if minutes > 0 {
-		return fmt.Sprintf("%dm%02ds", minutes, seconds)
-	}
-
-	return fmt.Sprintf("%ds", seconds)
 }
 
 // titleCase converts a string to title case

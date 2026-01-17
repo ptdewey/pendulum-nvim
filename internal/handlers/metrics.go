@@ -74,7 +74,6 @@ func GenerateMetricsReport(ctx *glsp.Context, args []any) (string, error) {
 		"**Processing Summary:**",
 		"- Rows processed: " + formatNumber(result.Processed),
 		"- Processing time: " + result.Duration.String(),
-		"- Metrics generated: " + formatNumber(len(result.Metrics)),
 	}
 
 	formattedLines = append(formattedLines, metadata...)

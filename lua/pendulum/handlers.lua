@@ -1,9 +1,40 @@
 local M = {}
 
 local lsp_client = nil
+local lsp_ready = false
+local message_queue = {}
+
+local function flush_queue()
+    if not lsp_ready or not lsp_client or lsp_client:is_stopped() then
+        return
+    end
+
+    for _, msg in ipairs(message_queue) do
+        lsp_client:request("workspace/executeCommand", {
+            command = msg.command,
+            arguments = msg.args and { msg.args } or {},
+        }, function(err, _)
+            if err then
+                vim.notify(
+                    "Failed to execute "
+                        .. msg.command
+                        .. ": "
+                        .. tostring(err.message or err),
+                    vim.log.levels.ERROR
+                )
+            end
+        end, 0)
+    end
+
+    message_queue = {}
+end
 
 local function send_to_lsp(command, args)
-    if not lsp_client or lsp_client:is_stopped() then
+    local msg = { command = command, args = args }
+
+    if not lsp_ready or not lsp_client or lsp_client:is_stopped() then
+        -- Queue the message to send when connection is ready
+        table.insert(message_queue, msg)
         return
     end
 
@@ -21,6 +52,30 @@ local function send_to_lsp(command, args)
             )
         end
     end, 0)
+end
+
+local function ping_activity()
+    send_to_lsp("pendulum.activityPing")
+end
+
+local function log_full_activity(filepath)
+    -- Use provided filepath or get current buffer's path
+    local file = filepath or vim.fn.expand("%:p")
+    if file == "" then
+        return
+    end
+
+    local ft = vim.bo.filetype ~= "" and vim.bo.filetype or "unknown_filetype"
+
+    local data = {
+        time = os.date("!%Y-%m-%d %H:%M:%S"),
+        active = true,
+        file = file,
+        filetype = ft,
+        cwd = vim.loop.cwd(),
+    }
+
+    send_to_lsp("pendulum.logActivity", data)
 end
 
 local function init_lsp_client(opts)
@@ -59,11 +114,22 @@ local function init_lsp_client(opts)
         },
         root_dir = vim.loop.cwd(),
         filetypes = {},
+        on_init = function(client, initialize_result)
+            -- LSP handshake complete - server is ready to receive commands
+            -- Set lsp_client immediately since on_init fires before vim.lsp.start() returns
+            lsp_client = client
+            lsp_ready = true
+            -- Flush any queued messages
+            vim.schedule(function()
+                flush_queue()
+            end)
+        end,
         on_attach = function(client, bufnr)
             vim.lsp.log.debug("Pendulum LSP attached")
         end,
         on_exit = function(code, signal, _)
             lsp_client = nil
+            lsp_ready = false
             vim.notify(
                 string.format(
                     "Pendulum LSP server exited with code: %s, signal: %s",
@@ -91,26 +157,6 @@ local function init_lsp_client(opts)
     return lsp_client
 end
 
-local function ping_activity()
-    send_to_lsp("pendulum.activityPing")
-end
-
-local function log_full_activity()
-    local ft = vim.bo.filetype ~= "" and vim.bo.filetype or "unknown_filetype"
-
-    local data = {
-        time = os.date("!%Y-%m-%d %H:%M:%S"),
-        active = true,
-        file = vim.fn.expand("%:p"),
-        filetype = ft,
-        cwd = vim.loop.cwd(),
-    }
-
-    if data.file ~= "" then
-        send_to_lsp("pendulum.logActivity", data)
-    end
-end
-
 function M.get_lsp_client()
     return lsp_client
 end
@@ -136,9 +182,28 @@ function M.setup(opts)
         callback = ping_activity,
     })
 
-    vim.api.nvim_create_autocmd({ "BufEnter" }, {
+    vim.api.nvim_create_autocmd(
+        { "BufReadPost", "BufEnter", "BufLeave" },
+        {
+            group = "Pendulum",
+            callback = function()
+                log_full_activity()
+            end,
+        }
+    )
+
+    -- VimEnter needs special handling - the buffer may not be ready yet
+    vim.api.nvim_create_autocmd({ "VimEnter" }, {
         group = "Pendulum",
-        callback = log_full_activity,
+        callback = function()
+            -- Defer to ensure buffer is loaded when opening nvim with a file argument
+            vim.defer_fn(function()
+                local file = vim.fn.expand("%:p")
+                if file ~= "" then
+                    log_full_activity(file)
+                end
+            end, 10)
+        end,
     })
 
     vim.api.nvim_create_autocmd({ "VimLeave" }, {
@@ -151,10 +216,8 @@ function M.setup(opts)
         end,
     })
 
-    -- Initialize LSP client immediately (deferred to next tick to avoid start-up error)
-    vim.defer_fn(function()
-        init_lsp_client(opts)
-    end, 0)
+    -- Initialize LSP client immediately
+    init_lsp_client(opts)
 end
 
 return M

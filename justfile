@@ -1,6 +1,6 @@
 [private]
 default:
-    just --list
+    go build
 
 fmt:
     @echo "Formatting lua/yankbank..."
@@ -13,3 +13,6 @@ lint:
     @luacheck lua/ --globals vim
 
 pr-ready: fmt lint
+
+test:
+    @go test ./... -cover -coverprofile=cover.out

@@ -48,6 +48,10 @@ func WithTimerLen(timer time.Duration) option {
 	}
 }
 
+func testFunc() {
+	return
+}
+
 func Setup(opts ...option) error {
 	cfg = new(config)
 
