@@ -1,0 +1,20 @@
+---
+title: formatter_direct
+test_name: TestFormatterSnapshotDirectly
+file_name: snapshot_test.go
+version: 0.1.0
+---
+# Pendulum Metrics Report
+**Generated:** <TIMESTAMP>
+**Time Range:** all
+**Log File:** /test/pendulum.csv
+
+## Top 2 Branches
+1. main            : Total 30.00m, Active 25.00m (83.30%)
+2. feature/auth    : Total 20.00m, Active 18.00m (90.00%)
+
+
+## Top 2 Projects
+1. myproject       : Total 45.00m, Active 40.00m (88.90%)
+2. webapp          : Total 15.00m, Active 12.00m (80.00%)
+
