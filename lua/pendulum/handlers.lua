@@ -75,14 +75,69 @@ local function send_to_lsp(command, args)
     end, 0)
 end
 
+-- Synchronous version of send_to_lsp for critical operations like VimLeave
+local function send_to_lsp_sync(command, args, timeout_ms)
+    timeout_ms = timeout_ms or 1000
+
+    if not lsp_ready or not lsp_client or lsp_client:is_stopped() then
+        return false
+    end
+
+    local done = false
+    local success = false
+
+    lsp_client:request("workspace/executeCommand", {
+        command = command,
+        arguments = args and { args } or {},
+    }, function(err, _)
+        if err then
+            vim.notify(
+                "Failed to execute "
+                    .. command
+                    .. ": "
+                    .. tostring(err.message or err),
+                vim.log.levels.ERROR
+            )
+            success = false
+        else
+            success = true
+        end
+        done = true
+    end, 0)
+
+    -- Wait for the request to complete or timeout
+    local wait_result = vim.wait(timeout_ms, function()
+        return done
+    end, 10)
+
+    return wait_result and success
+end
+
 local function ping_activity()
+    -- Skip special buffer types (terminal, quickfix, help, etc.)
+    local buftype = vim.bo.buftype
+    if buftype ~= "" then
+        return
+    end
+
     send_to_lsp("pendulum.activityPing")
 end
 
 local function log_full_activity(filepath)
+    -- Skip special buffer types (terminal, quickfix, help, etc.)
+    local buftype = vim.bo.buftype
+    if buftype ~= "" then
+        return
+    end
+
     -- Use provided filepath or get current buffer's path
     local file = filepath or vim.fn.expand("%:p")
     if file == "" then
+        return
+    end
+
+    -- Skip terminal buffers and other non-file buffers
+    if file:match("^term://") or file:match("^fugitive://") or file:match("^oil://") then
         return
     end
 
@@ -249,8 +304,23 @@ function M.setup(opts)
         group = "Pendulum",
         callback = function()
             if lsp_client and not lsp_client:is_stopped() then
-                log_full_activity()
-                send_to_lsp("pendulum.endSession")
+                -- Use synchronous logging for VimLeave to ensure logs are written before exit
+                -- Skip special buffer types
+                local buftype = vim.bo.buftype
+                local file = vim.fn.expand("%:p")
+                if file ~= "" and buftype == "" and not file:match("^term://") and not file:match("^fugitive://") and not file:match("^oil://") then
+                    local ft = vim.bo.filetype ~= "" and vim.bo.filetype
+                        or "unknown_filetype"
+                    local data = {
+                        time = os.date("!%Y-%m-%d %H:%M:%S"),
+                        active = true,
+                        file = file,
+                        filetype = ft,
+                        cwd = vim.loop.cwd(),
+                    }
+                    send_to_lsp_sync("pendulum.logActivity", data, 1000)
+                end
+                send_to_lsp_sync("pendulum.endSession", nil, 500)
             end
         end,
     })
