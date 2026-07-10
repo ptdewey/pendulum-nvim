@@ -68,9 +68,13 @@ func (f *MetricsFormatter) formatMetric(metric data.PendulumMetric, n int) strin
 		keys = append(keys, k)
 	}
 
-	// Sort by active time (descending)
+	// Sort by active time (descending), then ID so equal durations are stable.
 	sort.SliceStable(keys, func(a, b int) bool {
-		return metric.Value[keys[a]].ActiveTime > metric.Value[keys[b]].ActiveTime
+		left, right := metric.Value[keys[a]], metric.Value[keys[b]]
+		if left.ActiveTime != right.ActiveTime {
+			return left.ActiveTime > right.ActiveTime
+		}
+		return keys[a] < keys[b]
 	})
 
 	n = min(n, len(keys))
@@ -246,47 +250,39 @@ func (f *MetricsFormatter) generateHoursHeader() string {
 
 // formatHoursReport formats the hourly activity data
 func (f *MetricsFormatter) formatHoursReport(hours *data.PendulumHours, n int) string {
-	// Convert hour durations to local timezone
-	loc, err := time.LoadLocation(f.params.TimeZone)
-	if err != nil {
-		loc = time.UTC
-	}
-
 	hourCountsActive := make(map[int]int)
 	hourDurationsActive := make(map[int]time.Duration)
 	hourDurationsTotal := make(map[int]time.Duration)
 	weekHourDurationsActive := make(map[int]time.Duration)
 	weekHourDurationsTotal := make(map[int]time.Duration)
 
-	// Count active timestamps per hour
-	layout := "2006-01-02 15:04:05"
+	// Count active samples per hour using their actual date and timezone.
+	loc, err := time.LoadLocation(f.params.TimeZone)
+	if err != nil {
+		loc = time.UTC
+	}
 	for _, ts := range hours.ActiveTimestamps {
-		t, err := time.Parse(layout, ts)
+		t, err := data.ParseTimestamp(ts)
 		if err != nil {
 			continue
 		}
 		hourCountsActive[t.In(loc).Hour()]++
 	}
 
-	// Convert hours to local timezone
 	for k, v := range hours.ActiveTimeHours {
-		t := time.Date(2006, 1, 2, k, 0, 0, 0, time.UTC)
-		hourDurationsActive[t.In(loc).Hour()] += v
+		hourDurationsActive[k] += v
 	}
 
 	for k, v := range hours.TotalTimeHours {
-		t := time.Date(2006, 1, 2, k, 0, 0, 0, time.UTC)
-		hourDurationsTotal[t.In(loc).Hour()] += v
+		hourDurationsTotal[k] += v
 	}
 
 	for k, v := range hours.ActiveTimeHoursRecent {
-		t := time.Date(2006, 1, 2, k, 0, 0, 0, time.UTC)
-		weekHourDurationsActive[t.In(loc).Hour()] += v
+		weekHourDurationsActive[k] += v
 	}
 
 	for k, v := range hours.TotalTimeHoursRecent {
-		t := time.Date(2006, 1, 2, k, 0, 0, 0, time.UTC)
-		weekHourDurationsTotal[t.In(loc).Hour()] += v
+		weekHourDurationsTotal[k] += v
 	}
 
 	// Create and sort slice by active duration (with hour as secondary key for determinism)

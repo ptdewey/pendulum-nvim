@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -38,6 +37,11 @@ func LogActivity(ctx *glsp.Context, args []any) (bool, error) {
 	if err := json.Unmarshal(jsonBytes, &ad); err != nil {
 		return false, fmt.Errorf("failed to parse activity data: %w", err)
 	}
+	// Resolve repository data once when the activity changes. The periodic
+	// ticker reuses this populated currentData instead of running git twice for
+	// every activity sample, which otherwise delays queued report commands.
+	ad.Project = getGitProject(ad.Cwd)
+	ad.Branch = getGitBranch(ad.Cwd)
 
 	am := GetActivityManager()
 	if am != nil {
@@ -46,25 +50,12 @@ func LogActivity(ctx *glsp.Context, args []any) (bool, error) {
 		am.UpdateActivity()
 
 		// Immediately log this activity data
-		ad.Project = getGitProject(ad.Cwd)
-		ad.Branch = getGitBranch(ad.Cwd)
 		if err := writeActivityToCSV(&ad); err != nil {
 			log.Printf("Failed to write activity data: %v", err)
 		}
 	} else {
 		// Fallback to direct logging if manager not available
-		ad.Project = getGitProject(ad.Cwd)
-		ad.Branch = getGitBranch(ad.Cwd)
-
-		row := ad.toCSV()
-
-		f, err := os.OpenFile(config.Config().LogFile, os.O_WRONLY|os.O_APPEND, 0664)
-		if err != nil {
-			return false, err
-		}
-		defer f.Close()
-
-		if _, err := f.Write([]byte(row)); err != nil {
+		if err := writeActivityToCSV(&ad); err != nil {
 			return false, err
 		}
 	}
@@ -107,18 +98,6 @@ func getGitProject(cwd string) string {
 	}
 
 	return "unknown_project"
-}
-
-func (ad *activityData) toCSV() string {
-	return fmt.Sprintf("%t,%s,%s,%s,%s,%s,%s\n",
-		ad.Active,
-		ad.Branch,
-		ad.Cwd,
-		ad.File,
-		ad.Filetype,
-		ad.Project,
-		ad.Time,
-	)
 }
 
 func ActivityPing(ctx *glsp.Context, args []any) (bool, error) {

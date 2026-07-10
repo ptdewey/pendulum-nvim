@@ -16,6 +16,7 @@ import (
 
 // GenerateMetricsReport generates a formatted metrics report via LSP
 func GenerateMetricsReport(ctx *glsp.Context, args []any) (string, error) {
+	reportStarted := time.Now()
 	log.Printf("executing command 'pendulum.generateMetricsReport' with args %v", args)
 
 	// Parse and validate parameters
@@ -80,8 +81,10 @@ func GenerateMetricsReport(ctx *glsp.Context, args []any) (string, error) {
 		"---",
 		"",
 		"**Processing Summary:**",
-		"- Rows processed: " + formatNumber(result.Processed),
-		"- Processing time: " + result.Duration.String(),
+		"- Rows accepted: " + formatNumber(result.Processed),
+		"- Rows rejected: " + formatNumber(result.Rejected),
+		"- Aggregation time: " + result.Duration.String(),
+		"- Report time: " + time.Since(reportStarted).String(),
 	}
 
 	formattedLines = append(formattedLines, metadata...)
@@ -89,14 +92,15 @@ func GenerateMetricsReport(ctx *glsp.Context, args []any) (string, error) {
 	// Join all lines into a single string
 	output := strings.Join(formattedLines, "\n")
 
-	log.Printf("Generated metrics report: %d lines, %d metrics, processed in %v",
-		len(formattedLines), len(result.Metrics), result.Duration)
+	log.Printf("Generated metrics report: %d lines, %d metrics, aggregated in %v, total handler time %v",
+		len(formattedLines), len(result.Metrics), result.Duration, time.Since(reportStarted))
 
 	return output, nil
 }
 
 // GenerateHourlyReport generates an hourly activity report via LSP
 func GenerateHourlyReport(ctx *glsp.Context, args []any) (string, error) {
+	reportStarted := time.Now()
 	log.Printf("executing command 'pendulum.generateHourlyReport' with args %v", args)
 
 	// Parse and validate parameters (reuse metrics params)
@@ -153,8 +157,10 @@ func GenerateHourlyReport(ctx *glsp.Context, args []any) (string, error) {
 		"---",
 		"",
 		"**Processing Summary:**",
-		"- Rows processed: " + formatNumber(result.Processed),
-		"- Processing time: " + result.Duration.String(),
+		"- Rows accepted: " + formatNumber(result.Processed),
+		"- Rows rejected: " + formatNumber(result.Rejected),
+		"- Aggregation time: " + result.Duration.String(),
+		"- Report time: " + time.Since(reportStarted).String(),
 	}
 
 	formattedLines = append(formattedLines, metadata...)
@@ -162,8 +168,8 @@ func GenerateHourlyReport(ctx *glsp.Context, args []any) (string, error) {
 	// Join all lines into a single string
 	output := strings.Join(formattedLines, "\n")
 
-	log.Printf("Generated hourly report: %d lines, processed in %v",
-		len(formattedLines), result.Duration)
+	log.Printf("Generated hourly report: %d lines, aggregated in %v, total handler time %v",
+		len(formattedLines), result.Duration, time.Since(reportStarted))
 
 	return output, nil
 }

@@ -75,6 +75,7 @@ const (
 type ProcessingResult struct {
 	Metrics   []PendulumMetric
 	Processed int
+	Rejected  int
 	Duration  time.Duration
 }
 
@@ -92,5 +93,6 @@ type PendulumHours struct {
 type HoursResult struct {
 	Hours     *PendulumHours
 	Processed int
+	Rejected  int
 	Duration  time.Duration
 }

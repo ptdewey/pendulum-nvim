@@ -299,14 +299,9 @@ func TestTimeRangeFilter(t *testing.T) {
 		}
 	})
 
-	t.Run("invalid timezone falls back to UTC", func(t *testing.T) {
-		filter, err := NewTimeRangeFilter("day", "Invalid/Timezone")
-		if err != nil {
-			t.Fatalf("Unexpected error: %v", err)
-		}
-		// Should not error, just use UTC
-		if filter.loc.String() != "UTC" {
-			t.Errorf("Expected UTC fallback, got %s", filter.loc.String())
+	t.Run("invalid timezone returns an error", func(t *testing.T) {
+		if _, err := NewTimeRangeFilter("day", "Invalid/Timezone"); err == nil {
+			t.Fatal("Expected invalid timezone error")
 		}
 	})
 }

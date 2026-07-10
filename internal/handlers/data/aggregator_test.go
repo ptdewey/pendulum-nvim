@@ -136,13 +136,13 @@ func TestMetricsAggregator_WithExclusions(t *testing.T) {
 			t.Error("Expected branch metric to be excluded")
 		}
 
-		// For file metric, should exclude test.go but include main.go
+		// The final sample has no following interval, so it contributes no time.
 		if metric.Name == "file" {
 			if _, exists := metric.Value["test.go"]; exists {
 				t.Error("Expected test.go to be excluded")
 			}
-			if _, exists := metric.Value["main.go"]; !exists {
-				t.Error("Expected main.go to be included")
+			if _, exists := metric.Value["main.go"]; exists {
+				t.Error("Expected main.go to have no entry without a following interval")
 			}
 		}
 	}

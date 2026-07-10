@@ -3,6 +3,7 @@ local M = {}
 local lsp_client = nil
 local lsp_ready = false
 local message_queue = {}
+local last_lifecycle_key = nil
 local stored_opts = nil
 
 -- Get the plugin installation path
@@ -123,7 +124,7 @@ local function ping_activity()
     send_to_lsp("pendulum.activityPing")
 end
 
-local function log_full_activity(filepath)
+local function log_full_activity(filepath, force)
     -- Skip special buffer types (terminal, quickfix, help, etc.)
     local buftype = vim.bo.buftype
     if buftype ~= "" then
@@ -144,13 +145,19 @@ local function log_full_activity(filepath)
     local ft = vim.bo.filetype ~= "" and vim.bo.filetype or "unknown_filetype"
 
     local data = {
-        time = os.date("!%Y-%m-%d %H:%M:%S"),
+        time = os.date("!%Y-%m-%dT%H:%M:%SZ"),
         active = true,
         file = file,
         filetype = ft,
         cwd = vim.loop.cwd(),
     }
 
+    local lifecycle_key = table.concat({ file, ft, data.cwd }, "\0")
+    if not force and lifecycle_key == last_lifecycle_key then
+        return
+    end
+    -- Set before the async request so overlapping autocmds are deterministic.
+    last_lifecycle_key = lifecycle_key
     send_to_lsp("pendulum.logActivity", data)
 end
 
@@ -277,7 +284,7 @@ function M.setup(opts)
     })
 
     vim.api.nvim_create_autocmd(
-        { "BufReadPost", "BufEnter", "BufLeave" },
+        { "BufEnter" },
         {
             group = "Pendulum",
             callback = function()
@@ -312,7 +319,7 @@ function M.setup(opts)
                     local ft = vim.bo.filetype ~= "" and vim.bo.filetype
                         or "unknown_filetype"
                     local data = {
-                        time = os.date("!%Y-%m-%d %H:%M:%S"),
+                        time = os.date("!%Y-%m-%dT%H:%M:%SZ"),
                         active = true,
                         file = file,
                         filetype = ft,

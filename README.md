@@ -54,6 +54,14 @@ With lazy.nvim
 
 ## Configuration
 
+### Activity lifecycle
+
+Pendulum records one full activity sample when entering a file buffer. Repeated
+enter events for the same file/filetype/cwd are deduplicated; switching to a
+different buffer records the destination buffer. Cursor movement only refreshes
+the active timer. On `VimLeave`, Pendulum synchronously writes a final sample
+and ends the session. Timestamps are UTC RFC3339 values.
+
 Pendulum can be customized with several options. Here is a table with configurable options:
 
 | Option                      | Description                                             | Default                  |

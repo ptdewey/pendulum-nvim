@@ -2,391 +2,215 @@ package data
 
 import (
 	"context"
-	"log"
 	"regexp"
-	"runtime"
 	"strconv"
-	"sync"
 	"time"
 )
 
-// MetricsAggregator handles concurrent aggregation of pendulum metrics
+// MetricsAggregator derives reports from one chronological interval stream.
 type MetricsAggregator struct {
 	workerCount int
 	params      *MetricsParams
 }
+type sample struct {
+	active bool
+	values []string
+	at     time.Time
+	raw    string
+	// barrier prevents a valid sample after invalid input from being joined to
+	// the prior valid sample. Unknown activity must never be invented.
+	barrier bool
+}
+type interval struct {
+	sample     sample
+	start, end time.Time
+}
 
-// NewMetricsAggregator creates a new metrics aggregator
 func NewMetricsAggregator(params *MetricsParams) *MetricsAggregator {
-	workerCount := min(runtime.NumCPU(), 8) // Cap at 8 workers for memory efficiency
-
-	return &MetricsAggregator{
-		workerCount: workerCount,
-		params:      params,
-	}
+	return &MetricsAggregator{workerCount: 1, params: params}
 }
 
-// AggregatePendulumMetrics aggregates metrics using concurrent workers
-func (a *MetricsAggregator) AggregatePendulumMetrics(ctx context.Context, data [][]string) (*ProcessingResult, error) {
-	startTime := time.Now()
-
-	if len(data) == 0 {
-		return &ProcessingResult{
-			Metrics:   []PendulumMetric{},
-			Processed: 0,
-			Duration:  time.Since(startTime),
-		}, nil
+func (a *MetricsAggregator) AggregatePendulumMetrics(ctx context.Context, rows [][]string) (*ProcessingResult, error) {
+	started := time.Now()
+	samples, rejected := parseSamples(rows)
+	if len(samples) == 0 {
+		return &ProcessingResult{Metrics: []PendulumMetric{}, Rejected: rejected, Duration: time.Since(started)}, nil
 	}
-
-	// Create exclude maps
-	excludeMap := make(map[int]struct{})
-	for _, section := range a.params.ReportSectionExcludes {
-		if idx, exists := CSVColumns[section]; exists {
-			excludeMap[idx] = struct{}{}
-		}
+	if err := ctx.Err(); err != nil {
+		return nil, cancelledError(err)
 	}
-
-	// Create work channels
-	jobs := make(chan aggregationJob, len(CSVColumns))
-	results := make(chan PendulumMetric, len(CSVColumns))
-	errors := make(chan error, len(CSVColumns))
-
-	// Start workers
-	var wg sync.WaitGroup
-	for i := 0; i < a.workerCount; i++ {
-		wg.Add(1)
-		go a.worker(ctx, &wg, jobs, results, errors)
-	}
-
-	// Send jobs
-	go func() {
-		defer close(jobs)
-		for colName, colIdx := range CSVColumns {
-			if colName == "active" || colName == "time" {
-				continue
-			}
-			if _, excluded := excludeMap[colIdx]; excluded {
-				continue
-			}
-
-			select {
-			case jobs <- aggregationJob{
-				data:     data,
-				colIndex: colIdx,
-				colName:  colName,
-			}:
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
-	// Close results when all workers are done
-	go func() {
-		wg.Wait()
-		close(results)
-		close(errors)
-	}()
-
-	// Collect results
-	metrics := make([]PendulumMetric, len(CSVColumns))
-	var firstError error
-
-	for {
-		select {
-		case result, ok := <-results:
-			if !ok {
-				// Channel closed, we're done
-				goto done
-			}
-			metrics[result.Index] = result
-
-		case err, ok := <-errors:
-			if !ok {
-				// Errors channel closed, ignore
-				continue
-			}
-			if firstError == nil {
-				firstError = err
-			}
-			log.Printf("Worker error: %v", err)
-
-		case <-ctx.Done():
-			return nil, &MetricsError{
-				Type:    ErrProcessingTimeout,
-				Message: "metrics aggregation cancelled",
-				Cause:   ctx.Err(),
-			}
-		}
-	}
-
-done:
-	if firstError != nil {
-		return nil, firstError
-	}
-
-	// Filter out empty metrics
-	var filteredMetrics []PendulumMetric
-	for _, metric := range metrics {
-		if metric.Name != "" && len(metric.Value) > 0 {
-			filteredMetrics = append(filteredMetrics, metric)
-		}
-	}
-
-	return &ProcessingResult{
-		Metrics:   filteredMetrics,
-		Processed: len(data) - 1, // Exclude header
-		Duration:  time.Since(startTime),
-	}, nil
-}
-
-type aggregationJob struct {
-	data     [][]string
-	colIndex int
-	colName  string
-}
-
-// worker processes aggregation jobs
-func (a *MetricsAggregator) worker(ctx context.Context, wg *sync.WaitGroup, jobs <-chan aggregationJob, results chan<- PendulumMetric, errors chan<- error) {
-	defer wg.Done()
-
-	for job := range jobs {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
-		metric, err := a.aggregateMetric(job.data, job.colIndex, job.colName)
-		if err != nil {
-			errors <- err
-			continue
-		}
-
-		results <- metric
-	}
-}
-
-// aggregateMetric aggregates a single metric column
-func (a *MetricsAggregator) aggregateMetric(data [][]string, colIdx int, colName string) (PendulumMetric, error) {
-	metric := PendulumMetric{
-		Name:  data[0][colIdx],
-		Index: colIdx,
-		Value: make(map[string]*PendulumEntry),
-	}
-
-	timecol := CSVColumns["time"]
-
-	// Handle cwd vs directory naming inconsistency
-	filterColName := colName
-	if colName == "cwd" {
-		filterColName = "directory"
-	}
-
-	// Compile exclusion patterns
-	var exclusionPatterns []*regexp.Regexp
-	if filters, exists := a.params.ReportExcludes[filterColName]; exists {
-		var err error
-		exclusionPatterns, err = CompileRegexPatterns(filters)
-		if err != nil {
-			return metric, err
-		}
-	}
-
-	// Create time range filter once (pre-computes boundaries)
-	timeFilter, err := NewTimeRangeFilter(a.params.TimeRange, a.params.TimeZone)
-	if err != nil {
-		return metric, err
-	}
-
-	// Process each row
-	for i := 1; i < len(data); i++ {
-		if len(data[i]) <= colIdx || len(data[i]) <= timecol {
-			continue // Skip malformed rows
-		}
-
-		active, err := strconv.ParseBool(data[i][0])
-		if err != nil {
-			log.Printf("Error parsing boolean at row %d, value: %s, error: %v", i, data[i][0], err)
-			continue
-		}
-
-		// Check time range using pre-computed filter
-		inRange, err := timeFilter.InRange(data[i][timecol])
-		if err != nil {
-			log.Printf("Error checking timestamp range: %v", err)
-			continue
-		}
-		if !inRange {
-			continue
-		}
-
-		val := data[i][colIdx]
-		if IsExcluded(val, exclusionPatterns) {
-			continue
-		}
-
-		// Initialize entry if doesn't exist
-		if metric.Value[val] == nil {
-			metric.Value[val] = &PendulumEntry{
-				ID:               val,
-				ActiveCount:      0,
-				TotalCount:       0,
-				ActiveTime:       0,
-				TotalTime:        0,
-				Timestamps:       make([]string, 0),
-				ActiveTimestamps: make([]string, 0),
-				ActivePct:        0,
-			}
-		}
-		entry := metric.Value[val]
-
-		// Update total metrics
-		entry.updateTotalMetrics(data[i][timecol], a.params.TimeoutLen)
-
-		// Update active metrics if active
-		if active {
-			entry.updateActiveMetrics(data[i][timecol], a.params.TimeoutLen)
-		}
-	}
-
-	// Calculate active percentages
-	a.calculateActivePercentages(metric.Value)
-
-	return metric, nil
-}
-
-// updateTotalMetrics updates total count and time for an entry
-func (entry *PendulumEntry) updateTotalMetrics(timestampStr string, timeoutLen float64) {
-	entry.Timestamps = append(entry.Timestamps, timestampStr)
-	tt, _ := TimeDiff(entry.Timestamps, timeoutLen, false)
-	entry.TotalCount++
-	entry.TotalTime += tt
-}
-
-// updateActiveMetrics updates active count and time for an entry
-func (entry *PendulumEntry) updateActiveMetrics(timestampStr string, timeoutLen float64) {
-	entry.ActiveTimestamps = append(entry.ActiveTimestamps, timestampStr)
-	at, _ := TimeDiff(entry.ActiveTimestamps, timeoutLen, false)
-	entry.ActiveCount++
-	entry.ActiveTime += at
-}
-
-// calculateActivePercentages calculates the active percentage for all entries
-func (a *MetricsAggregator) calculateActivePercentages(values map[string]*PendulumEntry) {
-	for _, v := range values {
-		if v.TotalTime > 0 {
-			v.ActivePct = float64(v.ActiveTime) / float64(v.TotalTime)
-		}
-	}
-}
-
-// AggregatePendulumHours aggregates hourly activity data from CSV records
-func (a *MetricsAggregator) AggregatePendulumHours(ctx context.Context, data [][]string) (*HoursResult, error) {
-	startTime := time.Now()
-
-	if len(data) <= 1 {
-		return &HoursResult{
-			Hours: &PendulumHours{
-				ActiveTimestamps:      []string{},
-				Timestamps:            []string{},
-				ActiveTimeHours:       make(map[int]time.Duration),
-				ActiveTimeHoursRecent: make(map[int]time.Duration),
-				TotalTimeHours:        make(map[int]time.Duration),
-				TotalTimeHoursRecent:  make(map[int]time.Duration),
-			},
-			Processed: 0,
-			Duration:  time.Since(startTime),
-		}, nil
-	}
-
-	hours := &PendulumHours{
-		ActiveTimestamps:      []string{},
-		Timestamps:            []string{},
-		ActiveTimeHours:       make(map[int]time.Duration),
-		ActiveTimeHoursRecent: make(map[int]time.Duration),
-		TotalTimeHours:        make(map[int]time.Duration),
-		TotalTimeHoursRecent:  make(map[int]time.Duration),
-	}
-
-	timecol := CSVColumns["time"]
-
-	// Create time range filter for "recent" (last week)
-	weekFilter, err := NewTimeRangeFilter("week", a.params.TimeZone)
+	filter, err := NewTimeRangeFilter(a.params.TimeRange, a.params.TimeZone)
 	if err != nil {
 		return nil, err
 	}
-
-	for i := 1; i < len(data); i++ {
-		select {
-		case <-ctx.Done():
-			return nil, &MetricsError{
-				Type:    ErrProcessingTimeout,
-				Message: "hours aggregation cancelled",
-				Cause:   ctx.Err(),
-			}
-		default:
+	// Build once. Every dimension derives from this same immutable stream.
+	intervals := buildIntervals(samples, a.params.TimeoutLen)
+	excludedColumns := map[int]bool{}
+	for _, name := range a.params.ReportSectionExcludes {
+		if i, ok := CSVColumns[name]; ok {
+			excludedColumns[i] = true
 		}
-
-		if len(data[i]) <= timecol {
+	}
+	metrics := make([]PendulumMetric, 0, 5)
+	for _, i := range []int{1, 2, 3, 4, 5} {
+		if excludedColumns[i] {
 			continue
 		}
-
-		active, err := strconv.ParseBool(data[i][0])
+		if err := ctx.Err(); err != nil {
+			return nil, cancelledError(err)
+		}
+		name := columnName(i)
+		patterns, err := a.exclusionPatterns(name)
 		if err != nil {
-			log.Printf("Error parsing boolean at row %d, value: %s, error: %v", i, data[i][0], err)
+			return nil, err
+		}
+		metric := PendulumMetric{Name: name, Index: i, Value: map[string]*PendulumEntry{}}
+		for _, in := range intervals {
+			clipped, ok := filter.Clip(in.start, in.end)
+			if !ok {
+				continue
+			}
+			value := in.sample.values[i]
+			if IsExcluded(value, patterns) {
+				continue
+			}
+			entry := metric.Value[value]
+			if entry == nil {
+				entry = &PendulumEntry{ID: value}
+				metric.Value[value] = entry
+			}
+			d := clipped.end.Sub(clipped.start)
+			entry.TotalCount++
+			entry.TotalTime += d
+			if in.sample.active {
+				entry.ActiveCount++
+				entry.ActiveTime += d
+			}
+		}
+		for _, entry := range metric.Value {
+			if entry.TotalTime > 0 {
+				entry.ActivePct = float64(entry.ActiveTime) / float64(entry.TotalTime)
+			}
+		}
+		metrics = append(metrics, metric)
+	}
+	return &ProcessingResult{Metrics: metrics, Processed: len(samples), Rejected: rejected, Duration: time.Since(started)}, nil
+}
+
+func (a *MetricsAggregator) AggregatePendulumHours(ctx context.Context, rows [][]string) (*HoursResult, error) {
+	started := time.Now()
+	samples, rejected := parseSamples(rows)
+	if err := ctx.Err(); err != nil {
+		return nil, cancelledError(err)
+	}
+	loc, err := time.LoadLocation(a.params.TimeZone)
+	if err != nil {
+		return nil, &MetricsError{Type: ErrInvalidParameters, Message: "load timezone", Cause: err}
+	}
+	week, err := NewTimeRangeFilter("week", a.params.TimeZone)
+	if err != nil {
+		return nil, err
+	}
+	hours := newPendulumHours()
+	for _, s := range samples {
+		hours.Timestamps = append(hours.Timestamps, s.raw)
+		if s.active {
+			hours.ActiveTimestamps = append(hours.ActiveTimestamps, s.raw)
+		}
+	}
+	for _, in := range buildIntervals(samples, a.params.TimeoutLen) {
+		if err := ctx.Err(); err != nil {
+			return nil, cancelledError(err)
+		}
+		allocateHours(hours.TotalTimeHours, in.start, in.end, loc)
+		if in.sample.active {
+			allocateHours(hours.ActiveTimeHours, in.start, in.end, loc)
+		}
+		if clipped, ok := week.Clip(in.start, in.end); ok {
+			allocateHours(hours.TotalTimeHoursRecent, clipped.start, clipped.end, loc)
+			if in.sample.active {
+				allocateHours(hours.ActiveTimeHoursRecent, clipped.start, clipped.end, loc)
+			}
+		}
+	}
+	return &HoursResult{Hours: hours, Processed: len(samples), Rejected: rejected, Duration: time.Since(started)}, nil
+}
+
+func parseSamples(rows [][]string) ([]sample, int) {
+	if len(rows) <= 1 {
+		return nil, 0
+	}
+	samples := make([]sample, 0, len(rows)-1)
+	rejected := 0
+	barrier := false
+	for _, row := range rows[1:] {
+		if len(row) <= CSVColumns["time"] {
+			rejected++
+			barrier = true
 			continue
 		}
-
-		timestampStr := data[i][timecol]
-		a.updateTotalHours(hours, timestampStr, weekFilter)
-
-		if active {
-			a.updateActiveHours(hours, timestampStr, weekFilter)
+		active, err := strconv.ParseBool(row[CSVColumns["active"]])
+		if err != nil {
+			rejected++
+			barrier = true
+			continue
+		}
+		at, err := ParseTimestamp(row[CSVColumns["time"]])
+		if err != nil {
+			rejected++
+			barrier = true
+			continue
+		}
+		if len(samples) > 0 && at.Before(samples[len(samples)-1].at) {
+			// Do not reorder logs: that hides clock/data errors and would change
+			// interval ownership. It is an explicit discontinuity instead.
+			rejected++
+			barrier = true
+			continue
+		}
+		samples = append(samples, sample{active: active, values: append([]string(nil), row...), at: at, raw: row[CSVColumns["time"]], barrier: barrier})
+		barrier = false
+	}
+	return samples, rejected
+}
+func buildIntervals(samples []sample, timeoutSeconds float64) []interval {
+	out := make([]interval, 0, max(0, len(samples)-1))
+	for i := 1; i < len(samples); i++ {
+		start, end := samples[i-1].at, samples[i].at
+		if !samples[i].barrier && end.Sub(start).Seconds() <= timeoutSeconds {
+			out = append(out, interval{sample: samples[i-1], start: start, end: end})
 		}
 	}
-
-	return &HoursResult{
-		Hours:     hours,
-		Processed: len(data) - 1,
-		Duration:  time.Since(startTime),
-	}, nil
+	return out
 }
-
-// updateTotalHours updates total time per hour
-func (a *MetricsAggregator) updateTotalHours(hours *PendulumHours, timestampStr string, weekFilter *TimeRangeFilter) {
-	hours.Timestamps = append(hours.Timestamps, timestampStr)
-
-	t, err := time.Parse("2006-01-02 15:04:05", timestampStr)
-	if err != nil {
-		log.Printf("Error parsing timestamp: %s, error: %v", timestampStr, err)
-		return
+func (a *MetricsAggregator) exclusionPatterns(name string) ([]*regexp.Regexp, error) {
+	return CompileRegexPatterns(a.params.ReportExcludes[name])
+}
+func columnName(index int) string {
+	for name, i := range CSVColumns {
+		if i == index {
+			return name
+		}
 	}
-
-	tth, _ := TimeDiff(hours.Timestamps, a.params.TimeoutLen, true)
-	hours.TotalTimeHours[t.Hour()] += tth
-
-	inRange, _ := weekFilter.InRange(timestampStr)
-	if inRange {
-		hours.TotalTimeHoursRecent[t.Hour()] += tth
+	return ""
+}
+func newPendulumHours() *PendulumHours {
+	return &PendulumHours{ActiveTimestamps: []string{}, Timestamps: []string{}, ActiveTimeHours: map[int]time.Duration{}, ActiveTimeHoursRecent: map[int]time.Duration{}, TotalTimeHours: map[int]time.Duration{}, TotalTimeHoursRecent: map[int]time.Duration{}}
+}
+func allocateHours(target map[int]time.Duration, start, end time.Time, loc *time.Location) {
+	for start.Before(end) {
+		local := start.In(loc)
+		next := time.Date(local.Year(), local.Month(), local.Day(), local.Hour()+1, 0, 0, 0, loc).UTC()
+		if !next.After(start) {
+			next = start.Truncate(time.Hour).Add(time.Hour)
+		}
+		if next.After(end) {
+			next = end
+		}
+		target[local.Hour()] += next.Sub(start)
+		start = next
 	}
 }
-
-// updateActiveHours updates active time per hour
-func (a *MetricsAggregator) updateActiveHours(hours *PendulumHours, timestampStr string, weekFilter *TimeRangeFilter) {
-	hours.ActiveTimestamps = append(hours.ActiveTimestamps, timestampStr)
-
-	t, err := time.Parse("2006-01-02 15:04:05", timestampStr)
-	if err != nil {
-		log.Printf("Error parsing timestamp: %s, error: %v", timestampStr, err)
-		return
-	}
-
-	ath, _ := TimeDiff(hours.ActiveTimestamps, a.params.TimeoutLen, true)
-	hours.ActiveTimeHours[t.Hour()] += ath
-
-	inRange, _ := weekFilter.InRange(timestampStr)
-	if inRange {
-		hours.ActiveTimeHoursRecent[t.Hour()] += ath
-	}
+func cancelledError(err error) error {
+	return &MetricsError{Type: ErrProcessingTimeout, Message: "metrics aggregation cancelled", Cause: err}
 }
