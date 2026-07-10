@@ -1,0 +1,18 @@
+---
+title: hours_report_all
+test_name: TestHoursReportSnapshot
+file_name: snapshot_test.go
+version: 0.1.0
+---
+# Pendulum Hours Report
+**Generated:** <TIMESTAMP>
+**Log File:** <LOG_FILE_PATH>
+
+## Times Most Active
+   Time   Overall (Active %)  This Week (Active %)  Entry Count
+1. 16      21.00m (100.00%)           0s ( 0.00%)           21
+2. 10      15.00m (100.00%)           0s ( 0.00%)           15
+3. 14      15.00m (100.00%)           0s ( 0.00%)           15
+4. 17      13.00m (100.00%)           0s ( 0.00%)           13
+5.  9      10.00m (100.00%)           0s ( 0.00%)           10
+

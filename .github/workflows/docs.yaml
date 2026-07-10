@@ -14,13 +14,13 @@ jobs:
         uses: kdheepak/panvimdoc@main
         with:
           vimdoc: pendulum-nvim
-          version: "Neovim >= 0.10.0"
+          version: "Neovim >= 0.11.0"
           demojify: true
           treesitter: true
       - name: Push changes
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
-          commit_message: "doc: auto-generate vimdoc"
+          commit_message: "docs: auto-generate vimdoc"
           commit_user_name: "github-actions[bot]"
           commit_user_email: "github-actions[bot]@users.noreply.github.com"
           commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"

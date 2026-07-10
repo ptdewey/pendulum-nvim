@@ -1,0 +1,35 @@
+---
+title: metrics_report_top2
+test_name: TestMetricsReportSnapshotTopN
+file_name: snapshot_test.go
+version: 0.1.0
+---
+# Pendulum Metrics Report
+**Generated:** <TIMESTAMP>
+**Time Range:** all
+**Log File:** <LOG_FILE_PATH>
+
+## Top 2 Branches
+1. main            : Total 45.00m, Active 45.00m (100.00%)
+2. develop         : Total 26.00m, Active 26.00m (100.00%)
+
+
+## Top 2 Directories
+1. /home/dev/myproject  : Total 39.00m, Active 39.00m (100.00%)
+2. /home/dev/api-server : Total 26.00m, Active 26.00m (100.00%)
+
+
+## Top 2 Files
+1. auth.go         : Total 18.00m, Active 18.00m (100.00%)
+2. server.py       : Total 12.00m, Active 12.00m (100.00%)
+
+
+## Top 2 File Types
+1. go              : Total 33.00m, Active 33.00m (100.00%)
+2. python          : Total 26.00m, Active 26.00m (100.00%)
+
+
+## Top 2 Projects
+1. myproject       : Total 39.00m, Active 39.00m (100.00%)
+2. api-server      : Total 26.00m, Active 26.00m (100.00%)
+
